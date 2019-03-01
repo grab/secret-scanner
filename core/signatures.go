@@ -59,12 +59,6 @@ type Finding struct {
   RepositoryUrl   string
 }
 
-func (f *Finding) setupUrls() {
-  f.RepositoryUrl = fmt.Sprintf("https://github.com/%s/%s", f.RepositoryOwner, f.RepositoryName)
-  f.FileUrl = fmt.Sprintf("%s/blob/%s/%s", f.RepositoryUrl, f.CommitHash, f.FilePath)
-  f.CommitUrl = fmt.Sprintf("%s/commit/%s", f.RepositoryUrl, f.CommitHash)
-}
-
 func (f *Finding) generateID() {
   h := sha1.New()
   io.WriteString(h, f.FilePath)
@@ -78,7 +72,6 @@ func (f *Finding) generateID() {
 }
 
 func (f *Finding) Initialize() {
-  f.setupUrls()
   f.generateID()
 }
 

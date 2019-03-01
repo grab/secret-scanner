@@ -2,6 +2,7 @@ package core
 
 import (
   "os"
+  "fmt"
   "sync"
   "strings"
   "context"
@@ -264,7 +265,10 @@ func AnalyzeRepositories(sess *GithubSession) {
 						RepositoryName:  *repo.Name,
 						CommitHash:      commit.Hash.String(),
 						CommitMessage:   strings.TrimSpace(commit.Message),
-						CommitAuthor:    commit.Author.String(),
+            CommitAuthor:    commit.Author.String(),
+            RepositoryUrl:   *repo.URL,
+						FileUrl:				 fmt.Sprintf("%s/blob/%s/%s", *repo.URL, commit.Hash.String(), path),
+						CommitUrl:			 fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
 						}
 						finding.Initialize()
 						sess.AddFinding(finding)

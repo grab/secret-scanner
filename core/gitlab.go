@@ -2,6 +2,7 @@ package core
 
 import (
 	"os"
+	"fmt"
 	"sync"
 	"strings"
 	"github.com/xanzy/go-gitlab"
@@ -32,13 +33,12 @@ func GetAllRepositories(git *gitlab.Client) ([]*GitlabRepository, error){
 			Page:    1,
 		},
 	}
-	// projects, _, err := git.Projects.ListProjects(nil)
+	// projects, _, err := git.Projects.ListProjects(opt)
 	// 	if err != nil {
 	// 		return allRepos, err
 	// 	}
 	// 	for _, proj := range projects {
 	// 		r := GitlabRepository{
-				
 	// 			ID:            &proj.ID,
 	// 			Name:          &proj.Name,
 	// 			FullName:      &proj.Name,
@@ -168,6 +168,9 @@ func AnalyzeGitlabRepositories(sess *GitlabSession) {
 						CommitHash:      commit.Hash.String(),
 						CommitMessage:   strings.TrimSpace(commit.Message),
 						CommitAuthor:    commit.Author.String(),
+						RepositoryUrl:   *repo.URL,
+						FileUrl:				 fmt.Sprintf("%s/blob/%s/%s", *repo.URL, commit.Hash.String(), path),
+						CommitUrl:			 fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
 						}
 						finding.Initialize()
 						sess.AddFinding(finding)
