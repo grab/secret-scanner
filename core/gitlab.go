@@ -2,6 +2,7 @@ package core
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -34,25 +35,6 @@ func GetAllRepositories(git *gitlab.Client) ([]*GitlabRepository, error) {
 			Page:    1,
 		},
 	}
-	// projects, _, err := git.Projects.ListProjects(opt)
-	// 	if err != nil {
-	// 		return allRepos, err
-	// 	}
-	// 	for _, proj := range projects {
-	// 		r := GitlabRepository{
-	// 			ID:            &proj.ID,
-	// 			Name:          &proj.Name,
-	// 			FullName:      &proj.Name,
-	// 			CloneURL:      &proj.SSHURLToRepo,
-	// 			URL:           &proj.WebURL,
-	// 			DefaultBranch: &proj.DefaultBranch,
-	// 			Description:   &proj.Description,
-	// 			Homepage:      &proj.WebURL,
-	// 			Owner:         nil,
-	// 			}
-	// 		allRepos = append(allRepos, &r)
-	// 		log.Printf("Found project: %s", proj.Name)
-	// 	}
 	for {
 		projects, resp, err := git.Projects.ListProjects(opt)
 		if err != nil {
@@ -80,13 +62,55 @@ func GetAllRepositories(git *gitlab.Client) ([]*GitlabRepository, error) {
 	return allRepos, nil
 }
 
-func GatherGitlabRepos(sess *GitlabSession) {
-	repos, err := GetAllRepositories(sess.GitlabClient)
+func GetRepository(git *gitlab.Client, id string) (*GitlabRepository, error) {
+	proj, _, err := git.Projects.GetProject(id)
 	if err != nil {
-		sess.Out.Error(" Failed to retrieve repositories: %s\n", err)
+		return nil, err
+	}
+	repo := &GitlabRepository{
+		ID:            &proj.ID,
+		Name:          &proj.Name,
+		FullName:      &proj.Name,
+		CloneURL:      &proj.SSHURLToRepo,
+		URL:           &proj.WebURL,
+		DefaultBranch: &proj.DefaultBranch,
+		Description:   &proj.Description,
+		Homepage:      &proj.WebURL,
+		Owner:         nil,
+	}
+	return repo, nil
+}
+
+func GatherGitlabRepos(sess *GitlabSession) {
+	var repos []*GitlabRepository
+	var err error
+	if *sess.Options.Repos != "" {
+		//Fetching the repos prodided in repo-list
+		if !FileExists(*sess.Options.Repos) {
+			sess.Out.Error(" No such file exists in: %s\n", *sess.Options.Repos)
+		}
+		data, err := ioutil.ReadFile(*sess.Options.Repos)
+		if err != nil {
+			sess.Out.Error(" Failed to load the repo list provided: %s\n", err)
+		}
+		ids := strings.Split(string(data), ",")
+		for _, id := range ids {
+			r, err := GetRepository(sess.GitlabClient, id)
+			if err != nil {
+				sess.Out.Error("Error fetching the repo with ID %s: %s\n", id, err)
+				continue
+			}
+			repos = append(repos, r)
+		}
+	} else {
+		//fetch all repos
+		repos, err = GetAllRepositories(sess.GitlabClient)
+		if err != nil {
+			sess.Out.Error(" Failed to retrieve repositories: %s\n", err)
+		}
 	}
 	for _, repo := range repos {
-		sess.Out.Debug(" Retrieved repository: %s\n", *repo.FullName)
+		sess.Out.Info(" Retrieved repository: %s\n", *repo.FullName)
 		sess.AddGitlabRepository(repo)
 	}
 	sess.Stats.IncrementTargets()
@@ -122,7 +146,8 @@ func AnalyzeGitlabRepositories(sess *GitlabSession) {
 				}
 
 				sess.Out.Debug("[THREAD #%d][%s] Cloning repository...\n", tid, *repo.FullName)
-				clone, path, err := CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
+				// clone, dir, err := CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
+				_, dir, err := CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
 				if err != nil {
 					if err.Error() != "remote repository is empty" {
 						sess.Out.Error("Error cloning repository %s: %s\n", *repo.FullName, err)
@@ -131,74 +156,119 @@ func AnalyzeGitlabRepositories(sess *GitlabSession) {
 					sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.GitlabRepos))
 					continue
 				}
-				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, *repo.FullName, path)
+				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, *repo.FullName, dir)
 
-				history, err := GetRepositoryHistory(clone)
+				paths, err := GatherPaths(dir, *repo.DefaultBranch)
 				if err != nil {
-					sess.Out.Error("[THREAD #%d][%s] Error getting commit history: %s\n", tid, *repo.FullName, err)
-					os.RemoveAll(path)
+					sess.Out.Error("Error while fetching the file paths of %s repository: %s\n", dir, err)
 					sess.Stats.IncrementRepositories()
 					sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.GitlabRepos))
+					os.RemoveAll(dir)
 					continue
 				}
-				sess.Out.Debug("[THREAD #%d][%s] Number of commits: %d\n", tid, *repo.FullName, len(history))
-
-				for _, commit := range history {
-					sess.Out.Debug("[THREAD #%d][%s] Analyzing commit: %s\n", tid, *repo.FullName, commit.Hash)
-					changes, _ := GetChanges(commit, clone)
-					sess.Out.Debug("[THREAD #%d][%s] Changes in %s: %d\n", tid, *repo.FullName, commit.Hash, len(changes))
-					for _, change := range changes {
-						changeAction := GetChangeAction(change)
-						path := GetChangePath(change)
-						matchFile := NewMatchFile(path)
-						if matchFile.IsSkippable() {
-							sess.Out.Debug("[THREAD #%d][%s] Skipping %s\n", tid, *repo.FullName, matchFile.Path)
-							continue
-						}
-						sess.Out.Debug("[THREAD #%d][%s] Matching: %s...\n", tid, *repo.FullName, matchFile.Path)
-						for _, signature := range Signatures {
-							if signature.Match(matchFile) {
-
-								finding := &Finding{
-									FilePath:        path,
-									Action:          changeAction,
-									Description:     signature.Description(),
-									Comment:         signature.Comment(),
-									RepositoryOwner: "",
-									RepositoryName:  *repo.Name,
-									CommitHash:      commit.Hash.String(),
-									CommitMessage:   strings.TrimSpace(commit.Message),
-									CommitAuthor:    commit.Author.String(),
-									RepositoryUrl:   *repo.URL,
-									FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, commit.Hash.String(), path),
-									CommitUrl:       fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
-								}
-								finding.Initialize()
-								sess.AddFinding(finding)
-
-								sess.Out.Warn(" %s: %s\n", strings.ToUpper(changeAction), finding.Description)
-								sess.Out.Info("  Path.......: %s\n", finding.FilePath)
-								sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
-								sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
-								sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
-								if finding.Comment != "" {
-									sess.Out.Info("  Comment....: %s\n", finding.Comment)
-								}
-								sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
-								sess.Out.Info("  Commit URL.: %s\n", finding.CommitUrl)
-								sess.Out.Info(" ------------------------------------------------\n\n")
-								sess.Stats.IncrementFindings()
-								break
-							}
-						}
-						sess.Stats.IncrementFiles()
+				sess.Out.Debug("[THREAD #%d][%s] Fetching repository files of: %s\n", tid, *repo.FullName, dir)
+				for _, path := range paths {
+					sess.Out.Debug("%s\n", path)
+					matchFile := NewMatchFile(path)
+					if matchFile.IsSkippable() {
+						sess.Out.Debug("[THREAD #%d][%s] Skipping %s\n", tid, *repo.FullName, matchFile.Path)
+						continue
 					}
-					sess.Stats.IncrementCommits()
-					sess.Out.Debug("[THREAD #%d][%s] Done analyzing changes in %s\n", tid, *repo.FullName, commit.Hash)
+					sess.Out.Debug("[THREAD #%d][%s] Matching: %s...\n", tid, *repo.FullName, matchFile.Path)
+					for _, signature := range Signatures {
+						if signature.Match(matchFile) {
+
+							finding := &Finding{
+								FilePath:        matchFile.Path,
+								Description:     signature.Description(),
+								Comment:         signature.Comment(),
+								RepositoryOwner: "",
+								RepositoryName:  *repo.Name,
+								RepositoryUrl:   *repo.URL,
+								FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, *repo.DefaultBranch, matchFile.Path),
+							}
+							finding.Initialize()
+							sess.AddFinding(finding)
+
+							sess.Out.Warn(" Desc: %s\n", finding.Description)
+							sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
+							sess.Out.Info("  Path.......: %s\n", finding.FilePath)
+							if finding.Comment != "" {
+								sess.Out.Info("  Comment....: %s\n", finding.Comment)
+							}
+							sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
+							sess.Out.Info(" ------------------------------------------------\n\n")
+							sess.Stats.IncrementFindings()
+						}
+					}
+					sess.Stats.IncrementFiles()
 				}
+				// history, err := GetRepositoryHistory(clone)
+				// if err != nil {
+				// 	sess.Out.Error("[THREAD #%d][%s] Error getting commit history: %s\n", tid, *repo.FullName, err)
+				// 	os.RemoveAll(dir)
+				// 	sess.Stats.IncrementRepositories()
+				// 	sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.GitlabRepos))
+				// 	continue
+				// }
+				// sess.Out.Debug("[THREAD #%d][%s] Number of commits: %d\n", tid, *repo.FullName, len(history))
+
+				// for _, commit := range history {
+				// 	sess.Out.Debug("[THREAD #%d][%s] Analyzing commit: %s\n", tid, *repo.FullName, commit.Hash)
+				// 	changes, _ := GetChanges(commit, clone)
+				// 	sess.Out.Debug("[THREAD #%d][%s] Changes in %s: %d\n", tid, *repo.FullName, commit.Hash, len(changes))
+				// 	for _, change := range changes {
+				// 		changeAction := GetChangeAction(change)
+				// 		path := GetChangePath(change)
+				// 		matchFile := NewMatchFile(path)
+				// 		if matchFile.IsSkippable() {
+				// 			sess.Out.Debug("[THREAD #%d][%s] Skipping %s\n", tid, *repo.FullName, matchFile.Path)
+				// 			continue
+				// 		}
+				// 		sess.Out.Debug("[THREAD #%d][%s] Matching: %s...\n", tid, *repo.FullName, matchFile.Path)
+				// 		for _, signature := range Signatures {
+				// 			if signature.Match(matchFile) {
+
+				// 				finding := &Finding{
+				// 					FilePath:        path,
+				// 					Action:          changeAction,
+				// 					Description:     signature.Description(),
+				// 					Comment:         signature.Comment(),
+				// 					RepositoryOwner: "",
+				// 					RepositoryName:  *repo.Name,
+				// 					CommitHash:      commit.Hash.String(),
+				// 					CommitMessage:   strings.TrimSpace(commit.Message),
+				// 					CommitAuthor:    commit.Author.String(),
+				// 					RepositoryUrl:   *repo.URL,
+				// 					FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, commit.Hash.String(), path),
+				// 					CommitUrl:       fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
+				// 				}
+				// 				finding.Initialize()
+				// 				sess.AddFinding(finding)
+
+				// 				sess.Out.Warn(" %s: %s\n", strings.ToUpper(changeAction), finding.Description)
+				// 				sess.Out.Info("  Path.......: %s\n", finding.FilePath)
+				// 				sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
+				// 				sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
+				// 				sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
+				// 				if finding.Comment != "" {
+				// 					sess.Out.Info("  Comment....: %s\n", finding.Comment)
+				// 				}
+				// 				sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
+				// 				sess.Out.Info("  Commit URL.: %s\n", finding.CommitUrl)
+				// 				sess.Out.Info(" ------------------------------------------------\n\n")
+				// 				sess.Stats.IncrementFindings()
+				// 				break
+				// 			}
+				// 		}
+				// 		sess.Stats.IncrementFiles()
+				// 	}
+				// // 	sess.Stats.IncrementCommits()
+				// 	sess.Out.Debug("[THREAD #%d][%s] Done analyzing changes in %s\n", tid, *repo.FullName, commit.Hash)
+				// }
 				sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, *repo.FullName)
-				os.RemoveAll(path)
-				sess.Out.Debug("[THREAD #%d][%s] Deleted %s\n", tid, *repo.FullName, path)
+				os.RemoveAll(dir)
+				sess.Out.Debug("[THREAD #%d][%s] Deleted %s\n", tid, *repo.FullName, dir)
 				sess.Stats.IncrementRepositories()
 				sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.GitlabRepos))
 			}

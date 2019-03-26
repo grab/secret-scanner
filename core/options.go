@@ -17,6 +17,7 @@ type Options struct {
 	Debug             *bool
 	Logins            []string
 	Source            *string
+	Repos             *string
 }
 
 func ParseOptions() (Options, error) {
@@ -32,6 +33,7 @@ func ParseOptions() (Options, error) {
 		Silent:            flag.Bool("silent", false, "Suppress all output except for errors"),
 		Debug:             flag.Bool("debug", false, "Print debugging information"),
 		Source:            flag.String("source", "", "Specify version control system to scan (Eg. github, gitlab, bitbucket)"),
+		Repos:             flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
 	}
 
 	flag.Parse()
