@@ -118,3 +118,11 @@ func GetChangePath(change *object.Change) string {
 		return change.To.Name
 	}
 }
+
+func GetPatch(change *object.Change) (*object.Patch, error) {
+  patch, err := change.Patch()
+  if err != nil {
+    return nil, err
+  }
+  return patch, err
+}
