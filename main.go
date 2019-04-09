@@ -5,7 +5,7 @@ import (
 	"os"
 	"time"
 
-	"./core"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/core"
 )
 
 func main() {
