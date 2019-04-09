@@ -63,7 +63,7 @@ func GetAllRepositories(git *gitlab.Client) ([]*GitlabRepository, error) {
 }
 
 func GetRepository(git *gitlab.Client, id string) (*GitlabRepository, error) {
-	proj, _, err := git.Projects.GetProject(id)
+	proj, _, err := git.Projects.GetProject(id, nil)
 	if err != nil {
 		return nil, err
 	}
