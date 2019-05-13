@@ -310,6 +310,7 @@ func AnalyzeGithubRepoContents(sess *GithubSession, repo *GithubRepository, clon
 		sess.Out.Debug("[THREAD][%s] Changes in %s: %d\n", *repo.FullName, commit.Hash, len(changes))
 		for _, change := range changes {
 			path := GetChangePath(change)
+			allContent := ""
 			sess.Out.Debug("FILE: %s/%s\n", dir, path)
 			sess.Out.Debug("Repo URL: %s/commit/%s\n", *repo.URL, commit.Hash.String())
 			patch, _ := GetPatch(change)
@@ -318,45 +319,47 @@ func AnalyzeGithubRepoContents(sess *GithubSession, repo *GithubRepository, clon
 				chunks := diff.Chunks()
 				for _, chunk := range chunks {
 					if chunk.Type() == 1 {
-						matchFile := NewMatchFile(path, chunk.Content())
-						if matchFile.IsSkippable() {
-							sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
-							continue
-						}
-						sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-						for _, signature := range ContentSignatures {
-							if signature.Match(matchFile) {
-
-								finding := &Finding{
-									FilePath:        path,
-									Action:          ContentScan,
-									Description:     signature.Description(),
-									Comment:         signature.Comment(),
-									RepositoryOwner: *repo.Owner,
-									RepositoryName:  *repo.Name,
-									CommitHash:      commit.Hash.String(),
-									CommitMessage:   strings.TrimSpace(commit.Message),
-									CommitAuthor:    commit.Author.String(),
-									RepositoryUrl:   *repo.URL,
-									FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, commit.Hash.String(), path),
-									CommitUrl:       fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
-								}
-								finding.Initialize()
-								sess.AddFinding(finding)
-
-								sess.Out.Warn(" %s: %s\n", strings.ToUpper(ContentScan), finding.Description)
-								sess.Out.Info("  Path.......: %s\n", finding.FilePath)
-								sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
-								sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
-								sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
-								sess.Out.Info("  Comment....: %s\n", finding.Comment)
-								sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
-								sess.Out.Info("  Commit URL.: %s\n", finding.CommitUrl)
-								sess.Out.Info(" ------------------------------------------------\n\n")
-								sess.Stats.IncrementFindings()
-							}
-						}
+						allContent += chunk.Content()
+						allContent += "\n\n"
 					}
+				}
+			}
+			matchFile := NewMatchFile(path, allContent)
+			if matchFile.IsSkippable() {
+				sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
+				continue
+			}
+			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
+			for _, signature := range ContentSignatures {
+				if signature.Match(matchFile) {
+
+					finding := &Finding{
+						FilePath:        path,
+						Action:          ContentScan,
+						Description:     signature.Description(),
+						Comment:         signature.Comment(),
+						RepositoryOwner: *repo.Owner,
+						RepositoryName:  *repo.Name,
+						CommitHash:      commit.Hash.String(),
+						CommitMessage:   strings.TrimSpace(commit.Message),
+						CommitAuthor:    commit.Author.String(),
+						RepositoryUrl:   *repo.URL,
+						FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, commit.Hash.String(), path),
+						CommitUrl:       fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
+					}
+					finding.Initialize()
+					sess.AddFinding(finding)
+
+					sess.Out.Warn(" %s: %s\n", strings.ToUpper(ContentScan), finding.Description)
+					sess.Out.Info("  Path.......: %s\n", finding.FilePath)
+					sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
+					sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
+					sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
+					sess.Out.Info("  Comment....: %s\n", finding.Comment)
+					sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
+					sess.Out.Info("  Commit URL.: %s\n", finding.CommitUrl)
+					sess.Out.Info(" ------------------------------------------------\n\n")
+					sess.Stats.IncrementFindings()
 				}
 			}
 			sess.Stats.IncrementFiles()
