@@ -23,7 +23,7 @@ func main() {
 			os.Exit(1)
 		}
 		sess.Out.Important("Github Scanning Started at %s\n", sess.Stats.StartedAt.Format(time.RFC3339))
-		sess.Out.Important("Loaded %d signatures\n", len(core.Signatures))
+		sess.Out.Important("Loaded %d signatures\n", len(core.PathSignatures)+len(core.ContentSignatures))
 		if sess.Stats.Status == "finished" {
 			sess.Out.Important("Loaded session file: %s\n", *sess.Options.Load)
 		} else {
@@ -52,7 +52,7 @@ func main() {
 			os.Exit(1)
 		}
 		sess.Out.Important("Gitlab Scanning Started at %s\n", sess.Stats.StartedAt.Format(time.RFC3339))
-		sess.Out.Important("Loaded %d signatures\n", len(core.Signatures))
+		sess.Out.Important("Loaded %d signatures\n", len(core.PathSignatures)+len(core.ContentSignatures))
 		if sess.Stats.Status == "finished" {
 			sess.Out.Important("Loaded session file: %s\n", *sess.Options.Load)
 		} else {

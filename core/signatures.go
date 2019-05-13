@@ -16,6 +16,7 @@ const (
 	PartExtension = "extension"
 	PartFilename  = "filename"
 	PartPath      = "path"
+	PartContent   = "content"
 )
 
 var skippableExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".psd", ".xcf"}
@@ -25,6 +26,7 @@ type MatchFile struct {
 	Path      string
 	Filename  string
 	Extension string
+	Content   string
 }
 
 func (f *MatchFile) IsSkippable() bool {
@@ -61,13 +63,12 @@ type Finding struct {
 
 func (f *Finding) generateID() {
 	h := sha1.New()
-	io.WriteString(h, f.FilePath)
+	io.WriteString(h, f.FileUrl)
 	io.WriteString(h, f.Action)
-	io.WriteString(h, f.RepositoryOwner)
-	io.WriteString(h, f.RepositoryName)
 	io.WriteString(h, f.CommitHash)
 	io.WriteString(h, f.CommitMessage)
 	io.WriteString(h, f.CommitAuthor)
+	io.WriteString(h, f.Description)
 	f.Id = fmt.Sprintf("%x", h.Sum(nil))
 }
 
@@ -104,6 +105,8 @@ func (s SimpleSignature) Match(file MatchFile) bool {
 		haystack = &file.Filename
 	case PartExtension:
 		haystack = &file.Extension
+	case PartContent:
+		haystack = &file.Content
 	default:
 		return false
 	}
@@ -128,6 +131,8 @@ func (s PatternSignature) Match(file MatchFile) bool {
 		haystack = &file.Filename
 	case PartExtension:
 		haystack = &file.Extension
+	case PartContent:
+		haystack = &file.Content
 	default:
 		return false
 	}
@@ -143,17 +148,19 @@ func (s PatternSignature) Comment() string {
 	return s.comment
 }
 
-func NewMatchFile(path string) MatchFile {
+func NewMatchFile(path string, content string) MatchFile {
 	_, filename := filepath.Split(path)
 	extension := filepath.Ext(path)
+	content = strings.ToLower(content)
 	return MatchFile{
 		Path:      path,
 		Filename:  filename,
 		Extension: extension,
+		Content:   content,
 	}
 }
 
-var Signatures = []Signature{
+var PathSignatures = []Signature{
 	SimpleSignature{
 		part:        PartExtension,
 		match:       ".pem",
@@ -688,16 +695,45 @@ var Signatures = []Signature{
 		description: "Environment configuration file",
 		comment:     "",
 	},
+	//Creating lots of false positives
+	// PatternSignature{
+	// 	part:        PartPath,
+	// 	match:       regexp.MustCompile(`credential`),
+	// 	description: "Contains word: credential",
+	// 	comment:     "",
+	// },
+	// PatternSignature{
+	// 	part:        PartPath,
+	// 	match:       regexp.MustCompile(`password`),
+	// 	description: "Contains word: password",
+	// 	comment:     "",
+	// },
+}
+
+var ContentSignatures = []Signature{
+	// Content matcher
 	PatternSignature{
-		part:        PartPath,
-		match:       regexp.MustCompile(`credential`),
-		description: "Contains word: credential",
+		part:        PartContent,
+		match:       regexp.MustCompile(`-{5}begin ([dr]sa|ec|openssh)? private key-{5}`),
+		description: "Contains Private key in file",
 		comment:     "",
 	},
 	PatternSignature{
-		part:        PartPath,
-		match:       regexp.MustCompile(`password`),
-		description: "Contains word: password",
+		part:        PartContent,
+		match:       regexp.MustCompile(`(xox(p-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+|b-[a-z0-9]+-[a-zA-Z0-9]+|a-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+))`),
+		description: "Contains Slack token",
+		comment:     "",
+	},
+	PatternSignature{
+		part:        PartContent,
+		match:       regexp.MustCompile(`(eyj[a-z0-9\\-_%]+.eyj[a-z0-9\\-_%]+.[a-z0-9\\-_%]+)|(refresh_token[\"']?\\s*[:=]\\s*[\"']?(?:[a-z0-9_]+-)+[a-z0-9_]+[\"']?)`),
+		description: "Contains OAuth token",
+		comment:     "",
+	},
+	PatternSignature{
+		part:        PartContent,
+		match:       regexp.MustCompile(`(aws|access|key|secret).*(([=:])|(:=))\\s*[\\\"']([A-Za-z0-9\/+=]{40})[\\\"']`),
+		description: "Contains AWS key",
 		comment:     "",
 	},
 }

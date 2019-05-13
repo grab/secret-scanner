@@ -16,6 +16,8 @@ const (
 	StatusGathering    = "gathering"
 	StatusAnalyzing    = "analyzing"
 	StatusFinished     = "finished"
+	ContentScan		   = "Content Scan"
+	PathScan		   = "Path Scan"
 )
 
 type Stats struct {

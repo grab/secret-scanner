@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"strings"
 	"sync"
 
 	"github.com/google/go-github/github"
+	"gopkg.in/src-d/go-git.v4"
 )
 
 const (
@@ -219,8 +221,7 @@ func AnalyzeRepositories(sess *GithubSession) {
 				}
 
 				sess.Out.Debug("[THREAD #%d][%s] Cloning repository...\n", tid, *repo.FullName)
-				// clone, dir, err := CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
-				_, dir, err := CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
+				clone, dir, err := CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
 				if err != nil {
 					if err.Error() != "remote repository is empty" {
 						sess.Out.Error("Error cloning repository %s: %s\n", *repo.FullName, err)
@@ -230,131 +231,13 @@ func AnalyzeRepositories(sess *GithubSession) {
 					continue
 				}
 				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, *repo.FullName, dir)
-				sess.Out.Debug(" Fetching %s repository files.\n", *repo.FullName)
-				paths, err := GatherPaths(dir, *repo.DefaultBranch)
-				if err != nil {
-					sess.Out.Error("Error while fetching the file paths of %s repository: %s\n", dir, err)
-					sess.Stats.IncrementRepositories()
-					sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
-					os.RemoveAll(dir)
-					continue
-				}
-				sess.Out.Debug("[THREAD #%d][%s] Fetching repository files of: %s\n", tid, *repo.FullName, dir)
-				for _, path := range paths {
-					sess.Out.Debug("%s\n", path)
-					matchFile := NewMatchFile(path)
-					if matchFile.IsSkippable() {
-						sess.Out.Debug("[THREAD #%d][%s] Skipping %s\n", tid, *repo.FullName, matchFile.Path)
-						continue
-					}
-					sess.Out.Debug("[THREAD #%d][%s] Matching: %s...\n", tid, *repo.FullName, matchFile.Path)
-					for _, signature := range Signatures {
-						if signature.Match(matchFile) {
 
-							finding := &Finding{
-								FilePath:        matchFile.Path,
-								Description:     signature.Description(),
-								Comment:         signature.Comment(),
-								RepositoryOwner: *repo.Owner,
-								RepositoryName:  *repo.Name,
-								RepositoryUrl:   *repo.URL,
-								FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, *repo.DefaultBranch, matchFile.Path),
-							}
-							finding.Initialize()
-							sess.AddFinding(finding)
+				// Path Scan
+				AnalyzeGithubRepoPaths(sess, repo, dir)
+				// Content Scan
+				AnalyzeGithubRepoContents(sess, repo, clone, dir)
 
-							sess.Out.Warn(" Desc: %s\n", finding.Description)
-							sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
-							sess.Out.Info("  Path.......: %s\n", finding.FilePath)
-							if finding.Comment != "" {
-								sess.Out.Info("  Comment....: %s\n", finding.Comment)
-							}
-							sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
-							sess.Out.Info(" ------------------------------------------------\n\n")
-							sess.Stats.IncrementFindings()
-						}
-					}
-					sess.Stats.IncrementFiles()
-				}
-
-				// [WIP][Next Release] Scanning the commit depth and history
-				// history, err := GetRepositoryHistory(clone)
-				// if err != nil {
-				// 	sess.Out.Error("[THREAD #%d][%s] Error getting commit history: %s\n", tid, *repo.FullName, err)
-				// 	os.RemoveAll(dir)
-				// 	sess.Stats.IncrementRepositories()
-				// 	sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
-				// 	continue
-				// }
-				// sess.Out.Debug("[THREAD #%d][%s] Number of commits: %d\n", tid, *repo.FullName, len(history))
-
-				// for _, commit := range history {
-				// 	sess.Out.Debug("[THREAD #%d][%s] Analyzing commit: %s\n", tid, *repo.FullName, commit.Hash)
-				// 	changes, _ := GetChanges(commit, clone)
-				// 	sess.Out.Debug("[THREAD #%d][%s] Changes in %s: %d\n", tid, *repo.FullName, commit.Hash, len(changes))
-				// 	for _, change := range changes {
-				// 		changeAction := GetChangeAction(change)
-				// 		path := GetChangePath(change)
-
-				// 		// [WIP] Feature for matching content
-				// 		// sess.Out.Debug("FILE: %s/%s\n", dir, path)
-				// 		// sess.Out.Debug("Repo URL: %s/commit/%s\n", *repo.URL, commit.Hash.String())
-				// 		// fmt.Println("'''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''''")
-				// 		// patch, _ := GetPatch(change)
-				// 		// diffs := patch.FilePatches()
-				// 		// for _, diff := range diffs {
-				// 		// 	chunks := diff.Chunks()
-				// 		// 	for _, chunk := range chunks {
-				// 		// 		sess.Out.Info("OPERATION: %d\n --------------------------------------------\n%s\n", chunk.Type(), chunk.Content())
-				// 		// 	}
-				// 		// }
-				// 		matchFile := NewMatchFile(path)
-				// 		if matchFile.IsSkippable() {
-				// 			sess.Out.Debug("[THREAD #%d][%s] Skipping %s\n", tid, *repo.FullName, matchFile.Path)
-				// 			continue
-				// 		}
-				// 		sess.Out.Debug("[THREAD #%d][%s] Matching: %s...\n", tid, *repo.FullName, matchFile.Path)
-				// 		for _, signature := range Signatures {
-				// 			if signature.Match(matchFile) {
-
-				// 				finding := &Finding{
-				// 					FilePath:        path,
-				// 					Action:          changeAction,
-				// 					Description:     signature.Description(),
-				// 					Comment:         signature.Comment(),
-				// 					RepositoryOwner: *repo.Owner,
-				// 					RepositoryName:  *repo.Name,
-				// 					CommitHash:      commit.Hash.String(),
-				// 					CommitMessage:   strings.TrimSpace(commit.Message),
-				// 					CommitAuthor:    commit.Author.String(),
-				// 					RepositoryUrl:   *repo.URL,
-				// 					FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, commit.Hash.String(), path),
-				// 					CommitUrl:       fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
-				// 				}
-				// 				finding.Initialize()
-				// 				sess.AddFinding(finding)
-
-				// 				sess.Out.Warn(" %s: %s\n", strings.ToUpper(changeAction), finding.Description)
-				// 				sess.Out.Info("  Path.......: %s\n", finding.FilePath)
-				// 				sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
-				// 				sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
-				// 				sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
-				// 				if finding.Comment != "" {
-				// 					sess.Out.Info("  Comment....: %s\n", finding.Comment)
-				// 				}
-				// 				sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
-				// 				sess.Out.Info("  Commit URL.: %s\n", finding.CommitUrl)
-				// 				sess.Out.Info(" ------------------------------------------------\n\n")
-				// 				sess.Stats.IncrementFindings()
-				// 				break
-				// 			}
-				// 		}
-				// 		sess.Stats.IncrementFiles()
-				// 	}
-				// 	sess.Stats.IncrementCommits()
-				// 	sess.Out.Debug("[THREAD #%d][%s] Done analyzing changes in %s\n", tid, *repo.FullName, commit.Hash)
-				// }
-				// sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, *repo.FullName)
+				sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, *repo.FullName)
 				os.RemoveAll(dir)
 				sess.Out.Debug("[THREAD #%d][%s] Deleted %s\n", tid, *repo.FullName, dir)
 				sess.Stats.IncrementRepositories()
@@ -367,4 +250,118 @@ func AnalyzeRepositories(sess *GithubSession) {
 	}
 	close(ch)
 	wg.Wait()
+}
+
+func AnalyzeGithubRepoPaths(sess *GithubSession, repo *GithubRepository, dir string) {
+	sess.Out.Debug(" Fetching %s repository files.\n", *repo.FullName)
+	paths, err := GatherPaths(dir, *repo.DefaultBranch)
+	if err != nil {
+		sess.Out.Error("Error while fetching the file paths of %s repository: %s\n", dir, err)
+		return
+	}
+	sess.Out.Debug("[THREAD][%s] Fetching repository files of: %s\n", *repo.FullName, dir)
+	for _, path := range paths {
+		sess.Out.Debug("%s\n", path)
+		matchFile := NewMatchFile(path, "")
+		if matchFile.IsSkippable() {
+			sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
+			continue
+		}
+		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
+		for _, signature := range PathSignatures {
+			if signature.Match(matchFile) {
+
+				finding := &Finding{
+					FilePath:        matchFile.Path,
+					Action:          PathScan,
+					Description:     signature.Description(),
+					Comment:         signature.Comment(),
+					RepositoryOwner: *repo.Owner,
+					RepositoryName:  *repo.Name,
+					RepositoryUrl:   *repo.URL,
+					FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, *repo.DefaultBranch, matchFile.Path),
+				}
+				finding.Initialize()
+				sess.AddFinding(finding)
+
+				sess.Out.Warn(" %s: %s\n", strings.ToUpper(PathScan), finding.Description)
+				sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
+				sess.Out.Info("  Path.......: %s\n", finding.FilePath)
+				sess.Out.Info("  Comment....: %s\n", finding.Comment)
+				sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
+				sess.Out.Info(" ------------------------------------------------\n\n")
+				sess.Stats.IncrementFindings()
+			}
+		}
+	}
+}
+
+func AnalyzeGithubRepoContents(sess *GithubSession, repo *GithubRepository, clone *git.Repository, dir string) {
+	history, err := GetRepositoryHistory(clone)
+	if err != nil {
+		sess.Out.Error("[THREAD][%s] Error getting commit history: %s\n", *repo.FullName, err)
+		return
+	}
+	sess.Out.Debug("[THREAD][%s] Number of commits: %d\n", *repo.FullName, len(history))
+
+	for _, commit := range history {
+		sess.Out.Debug("[THREAD][%s] Analyzing commit: %s\n", *repo.FullName, commit.Hash)
+		changes, _ := GetChanges(commit, clone)
+		sess.Out.Debug("[THREAD][%s] Changes in %s: %d\n", *repo.FullName, commit.Hash, len(changes))
+		for _, change := range changes {
+			path := GetChangePath(change)
+			sess.Out.Debug("FILE: %s/%s\n", dir, path)
+			sess.Out.Debug("Repo URL: %s/commit/%s\n", *repo.URL, commit.Hash.String())
+			patch, _ := GetPatch(change)
+			diffs := patch.FilePatches()
+			for _, diff := range diffs {
+				chunks := diff.Chunks()
+				for _, chunk := range chunks {
+					if chunk.Type() == 1 {
+						matchFile := NewMatchFile(path, chunk.Content())
+						if matchFile.IsSkippable() {
+							sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
+							continue
+						}
+						sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
+						for _, signature := range ContentSignatures {
+							if signature.Match(matchFile) {
+
+								finding := &Finding{
+									FilePath:        path,
+									Action:          ContentScan,
+									Description:     signature.Description(),
+									Comment:         signature.Comment(),
+									RepositoryOwner: *repo.Owner,
+									RepositoryName:  *repo.Name,
+									CommitHash:      commit.Hash.String(),
+									CommitMessage:   strings.TrimSpace(commit.Message),
+									CommitAuthor:    commit.Author.String(),
+									RepositoryUrl:   *repo.URL,
+									FileUrl:         fmt.Sprintf("%s/blob/%s/%s", *repo.URL, commit.Hash.String(), path),
+									CommitUrl:       fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
+								}
+								finding.Initialize()
+								sess.AddFinding(finding)
+
+								sess.Out.Warn(" %s: %s\n", strings.ToUpper(ContentScan), finding.Description)
+								sess.Out.Info("  Path.......: %s\n", finding.FilePath)
+								sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
+								sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
+								sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
+								sess.Out.Info("  Comment....: %s\n", finding.Comment)
+								sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
+								sess.Out.Info("  Commit URL.: %s\n", finding.CommitUrl)
+								sess.Out.Info(" ------------------------------------------------\n\n")
+								sess.Stats.IncrementFindings()
+							}
+						}
+					}
+				}
+			}
+			sess.Stats.IncrementFiles()
+		}
+		sess.Stats.IncrementCommits()
+		sess.Out.Debug("[THREAD][%s] Done analyzing changes in %s\n", *repo.FullName, commit.Hash)
+	}
 }
