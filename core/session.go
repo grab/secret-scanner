@@ -8,7 +8,8 @@ import (
 	"runtime"
 	"sync"
 	"time"
-	// "github.com/gin-gonic/gin"
+
+	db "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
 )
 
 const (
@@ -16,8 +17,8 @@ const (
 	StatusGathering    = "gathering"
 	StatusAnalyzing    = "analyzing"
 	StatusFinished     = "finished"
-	ContentScan		   = "Content Scan"
-	PathScan		   = "Path Scan"
+	ContentScan        = "Content Scan"
+	PathScan           = "Path Scan"
 )
 
 type Stats struct {
@@ -41,18 +42,25 @@ type Session struct {
 	Out      *Logger `json:"-"`
 	Stats    *Stats
 	Findings []*Finding
+	Store    *db.MysqlHandler
 }
 
 func (s *Session) Start() {
 	s.InitStats()
 	s.InitLogger()
 	s.InitThreads()
+	s.InitDB()
 	// s.InitRouter()
 }
 
 func (s *Session) Finish() {
 	s.Stats.FinishedAt = time.Now()
 	s.Stats.Status = StatusFinished
+	//closing db connectoin
+	err := s.Store.CloseConnection()
+	if err != nil {
+		fmt.Println("Unable to close db connection: ", err)
+	}
 }
 
 func (s *Session) InitStats() {
@@ -75,6 +83,16 @@ func (s *Session) InitLogger() {
 	s.Out = &Logger{}
 	s.Out.SetDebug(*s.Options.Debug)
 	s.Out.SetSilent(*s.Options.Silent)
+}
+
+func (s *Session) InitDB() {
+	//Opening DB Connection
+	s.Store = db.GetInstance()
+	err := s.Store.OpenConnection("localhost", "3306", "root", "aksitroot", "secret-scanner")
+	if err != nil {
+		fmt.Println("Unable to open db connection: ", err)
+		// os.Exit(1)
+	}
 }
 
 func (s *Session) InitThreads() {
