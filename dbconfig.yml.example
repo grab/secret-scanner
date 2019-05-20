@@ -1,0 +1,11 @@
+development:
+  dialect: mysql
+  datasource: user:password@tcp(host:port)/dbname?parseTime=true
+  dir: db/mysql/migrations
+  table: tablename
+
+production:
+  dialect: mysql
+  datasource: user:password@tcp(host:port)/dbname?parseTime=true
+  dir: db/mysql/migrations
+  table: tablename
