@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -88,7 +89,13 @@ func (s *Session) InitLogger() {
 func (s *Session) InitDB() {
 	//Opening DB Connection
 	s.Store = db.GetInstance()
-	err := s.Store.OpenConnection("localhost", "3306", "root", "aksitroot", "secret-scanner")
+	err := s.Store.OpenConnection(
+		os.Getenv("DB_HOST"),
+		os.Getenv("DB_PORT"),
+		os.Getenv("DB_USER"),
+		os.Getenv("DB_PASS"),
+		os.Getenv("DB_NAME"),
+	)
 	if err != nil {
 		fmt.Println("Unable to open db connection: ", err)
 		// os.Exit(1)

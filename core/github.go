@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	pathpkg "path"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -15,6 +16,7 @@ import (
 
 const (
 	AccessTokenEnvVariable = "GITHUB_TOKEN"
+	BASE                   = 10
 )
 
 type GithubOwner struct {
@@ -234,10 +236,24 @@ func AnalyzeRepositories(sess *GithubSession) {
 				}
 				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, *repo.FullName, dir)
 
-				// Path Scan
-				AnalyzeGithubRepoPaths(sess, repo, dir)
-				// Content Scan
-				AnalyzeGithubRepoContents(sess, repo, clone, dir)
+				// // Path Scan
+				// AnalyzeGithubRepoPaths(sess, repo, dir)
+				// // Content Scan
+				// AnalyzeGithubRepoContents(sess, repo, clone, dir)
+
+				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, *repo.FullName)
+				checkpoint, err := GetCheckpoint(strconv.FormatInt(*repo.ID, BASE), sess.Store.Connection)
+				if err != nil {
+					sess.Out.Debug("DB Error: %s\n", err)
+				}
+
+				if checkpoint == "" {
+					//Scanning repo first time
+					ScanGithubRepoCurrentRevision(sess, repo, dir)
+				} else {
+					ScanGithubRepoLatestCommits(sess, repo, clone, dir, checkpoint)
+				}
+				UpdateCheckpoint(dir, strconv.FormatInt(*repo.ID, BASE), sess.Store.Connection)
 
 				sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, *repo.FullName)
 				os.RemoveAll(dir)
@@ -254,7 +270,9 @@ func AnalyzeRepositories(sess *GithubSession) {
 	wg.Wait()
 }
 
-func AnalyzeGithubRepoPaths(sess *GithubSession, repo *GithubRepository, dir string) {
+// ScanGithubRepoCurrentRevision runs the file scan for complete github repo.
+// It scans only the lastest revision. rather than scanning the entire commit history
+func ScanGithubRepoCurrentRevision(sess *GithubSession, repo *GithubRepository, dir string) {
 	sess.Out.Debug(" Fetching %s repository files.\n", *repo.FullName)
 	paths, err := GatherPaths(dir, *repo.DefaultBranch)
 	if err != nil {
@@ -264,18 +282,23 @@ func AnalyzeGithubRepoPaths(sess *GithubSession, repo *GithubRepository, dir str
 	sess.Out.Debug("[THREAD][%s] Fetching repository files of: %s\n", *repo.FullName, dir)
 	for _, path := range paths {
 		sess.Out.Debug("%s\n", path)
-		matchFile := NewMatchFile(path, "")
+		content, err := ioutil.ReadFile(pathpkg.Join(dir, path))
+		if err != nil {
+			sess.Out.Error("[FILE NOT FOUND]: %s/%s\n", dir, path)
+			continue
+		}
+		matchFile := NewMatchFile(path, string(content))
 		if matchFile.IsSkippable() {
 			sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
 			continue
 		}
 		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-		for _, signature := range PathSignatures {
+		for _, signature := range Signatures {
 			if signature.Match(matchFile) {
 
 				finding := &Finding{
-					FilePath:        matchFile.Path,
-					Action:          PathScan,
+					FilePath:        path,
+					Action:          signature.Part(),
 					Description:     signature.Description(),
 					Comment:         signature.Comment(),
 					RepositoryOwner: *repo.Owner,
@@ -298,7 +321,9 @@ func AnalyzeGithubRepoPaths(sess *GithubSession, repo *GithubRepository, dir str
 	}
 }
 
-func AnalyzeGithubRepoContents(sess *GithubSession, repo *GithubRepository, clone *git.Repository, dir string) {
+// ScanGithubRepoLatestCommits run a scan to analyze the diffs present in the commit history
+// It will scan the commit history till the checkpoint (last scanned commit) is reached
+func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, clone *git.Repository, dir, checkpoint string) {
 	history, err := GetRepositoryHistory(clone)
 	if err != nil {
 		sess.Out.Error("[THREAD][%s] Error getting commit history: %s\n", *repo.FullName, err)
@@ -307,6 +332,10 @@ func AnalyzeGithubRepoContents(sess *GithubSession, repo *GithubRepository, clon
 	sess.Out.Debug("[THREAD][%s] Number of commits: %d\n", *repo.FullName, len(history))
 
 	for _, commit := range history {
+		if strings.TrimSpace(commit.Hash.String()) == strings.TrimSpace(checkpoint) {
+			//checkpoint reached
+			break
+		}
 		sess.Out.Debug("[THREAD][%s] Analyzing commit: %s\n", *repo.FullName, commit.Hash)
 		changes, _ := GetChanges(commit, clone)
 		sess.Out.Debug("[THREAD][%s] Changes in %s: %d\n", *repo.FullName, commit.Hash, len(changes))
@@ -332,7 +361,7 @@ func AnalyzeGithubRepoContents(sess *GithubSession, repo *GithubRepository, clon
 				continue
 			}
 			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-			for _, signature := range ContentSignatures {
+			for _, signature := range Signatures {
 				if signature.Match(matchFile) {
 					// check if the matched signature is still present in the latest revision
 					latestContent, err := ioutil.ReadFile(pathpkg.Join(dir, path))

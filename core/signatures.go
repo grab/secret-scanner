@@ -82,6 +82,7 @@ type Signature interface {
 	Match(file MatchFile) bool
 	Description() string
 	Comment() string
+	Part() string
 }
 
 type SimpleSignature struct {
@@ -124,6 +125,10 @@ func (s SimpleSignature) Comment() string {
 	return s.comment
 }
 
+func (s SimpleSignature) Part() string {
+	return s.part
+}
+
 func (s PatternSignature) Match(file MatchFile) bool {
 	var haystack *string
 	switch s.part {
@@ -150,6 +155,10 @@ func (s PatternSignature) Comment() string {
 	return s.comment
 }
 
+func (s PatternSignature) Part() string {
+	return s.part
+}
+
 func NewMatchFile(path string, content string) MatchFile {
 	_, filename := filepath.Split(path)
 	extension := filepath.Ext(path)
@@ -162,7 +171,7 @@ func NewMatchFile(path string, content string) MatchFile {
 	}
 }
 
-var PathSignatures = []Signature{
+var Signatures = []Signature{
 	SimpleSignature{
 		part:        PartExtension,
 		match:       ".pem",
@@ -710,9 +719,7 @@ var PathSignatures = []Signature{
 	// 	description: "Contains word: password",
 	// 	comment:     "",
 	// },
-}
 
-var ContentSignatures = []Signature{
 	// Content matcher
 	PatternSignature{
 		part:        PartContent,

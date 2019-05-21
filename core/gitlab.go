@@ -4,9 +4,10 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	pathpkg "path"
+	"strconv"
 	"strings"
 	"sync"
-	pathpkg "path"
 
 	"github.com/xanzy/go-gitlab"
 	"gopkg.in/src-d/go-git.v4"
@@ -159,10 +160,19 @@ func AnalyzeGitlabRepositories(sess *GitlabSession) {
 				}
 				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, *repo.FullName, dir)
 
-				// Path Scanning
-				AnalyzeGitlabRepoPaths(sess, repo, dir)
-				// Content Scanning
-				AnalyzeGitlabRepoContents(sess, repo, clone, dir)
+				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, *repo.FullName)
+				checkpoint, err := GetCheckpoint(strconv.Itoa(*repo.ID), sess.Store.Connection)
+				if err != nil {
+					sess.Out.Debug("DB Error: %s\n", err)
+				}
+
+				if checkpoint == "" {
+					//Scanning repo first time
+					ScanGitlabRepoCurrentRevision(sess, repo, dir)
+				} else {
+					ScanGitlabRepoLatestCommits(sess, repo, clone, dir, checkpoint)
+				}
+				UpdateCheckpoint(dir, strconv.Itoa(*repo.ID), sess.Store.Connection)
 
 				sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, *repo.FullName)
 				os.RemoveAll(dir)
@@ -179,7 +189,9 @@ func AnalyzeGitlabRepositories(sess *GitlabSession) {
 	wg.Wait()
 }
 
-func AnalyzeGitlabRepoPaths(sess *GitlabSession, repo *GitlabRepository, dir string) {
+// ScanGitlabRepoCurrentRevision runs the file scan for complete gitlab repo.
+// It scans only the lastest revision. rather than scanning the entire commit history
+func ScanGitlabRepoCurrentRevision(sess *GitlabSession, repo *GitlabRepository, dir string) {
 	paths, err := GatherPaths(dir, *repo.DefaultBranch)
 	if err != nil {
 		sess.Out.Error("Error while fetching the file paths of %s repository: %s\n", dir, err)
@@ -188,29 +200,35 @@ func AnalyzeGitlabRepoPaths(sess *GitlabSession, repo *GitlabRepository, dir str
 	sess.Out.Debug("[THREAD][%s] Fetching repository files of: %s\n", *repo.FullName, dir)
 	for _, path := range paths {
 		sess.Out.Debug("Path: %s\n", path)
-		matchFile := NewMatchFile(path, "")
+		content, err := ioutil.ReadFile(pathpkg.Join(dir, path))
+		if err != nil {
+			sess.Out.Error("[FILE NOT FOUND]: %s/%s\n", dir, path)
+			continue
+		}
+		matchFile := NewMatchFile(path, string(content))
 		if matchFile.IsSkippable() {
 			sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
 			continue
 		}
 		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-		for _, signature := range PathSignatures {
+		for _, signature := range Signatures {
 			if signature.Match(matchFile) {
 				finding := &Finding{
-					FilePath:       matchFile.Path,
-					Action:         PathScan,
+					FilePath:       path,
+					Action:         signature.Part(),
 					Description:    signature.Description(),
 					Comment:        signature.Comment(),
 					RepositoryName: *repo.Name,
 					RepositoryUrl:  *repo.URL,
-					FileUrl:        fmt.Sprintf("%s/blob/%s/%s", *repo.URL, *repo.DefaultBranch, matchFile.Path),
+					FileUrl:        fmt.Sprintf("%s/blob/%s/%s", *repo.URL, *repo.DefaultBranch, path),
 				}
 				finding.Initialize()
 				sess.AddFinding(finding)
 
 				sess.Out.Warn(" %s: %s\n", strings.ToUpper(PathScan), finding.Description)
-				sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
 				sess.Out.Info("  Path.......: %s\n", finding.FilePath)
+				sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
+				sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 				sess.Out.Info("  Comment....: %s\n", finding.Comment)
 				sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
 				sess.Out.Info(" ------------------------------------------------\n\n")
@@ -220,7 +238,9 @@ func AnalyzeGitlabRepoPaths(sess *GitlabSession, repo *GitlabRepository, dir str
 	}
 }
 
-func AnalyzeGitlabRepoContents(sess *GitlabSession, repo *GitlabRepository, clone *git.Repository, dir string) {
+// ScanGitlabRepoLatestCommits run a scan to analyze the diffs present in the commit history
+// It will scan the commit history till the checkpoint (last scanned commit) is reached
+func ScanGitlabRepoLatestCommits(sess *GitlabSession, repo *GitlabRepository, clone *git.Repository, dir, checkpoint string) {
 	history, err := GetRepositoryHistory(clone)
 	if err != nil {
 		sess.Out.Error("[THREAD][%s] Error getting commit history: %s\n", *repo.FullName, err)
@@ -229,14 +249,17 @@ func AnalyzeGitlabRepoContents(sess *GitlabSession, repo *GitlabRepository, clon
 	sess.Out.Debug("[THREAD][%s] Number of commits: %d\n", *repo.FullName, len(history))
 
 	for _, commit := range history {
-
+		if strings.TrimSpace(commit.Hash.String()) == strings.TrimSpace(checkpoint) {
+			sess.Out.Debug("\nCheckpoint Reached !!\n")
+			break
+		}
 		sess.Out.Debug("[THREAD][%s] Analyzing commit: %s\n", *repo.FullName, commit.Hash)
 		changes, _ := GetChanges(commit, clone)
 		sess.Out.Debug("[THREAD][%s] Changes in %s: %d\n", *repo.FullName, commit.Hash, len(changes))
 		for _, change := range changes {
 			path := GetChangePath(change)
 			allContent := ""
-			sess.Out.Info("FILE: %s/%s\n", dir, path)
+			sess.Out.Debug("FILE: %s/%s\n", dir, path)
 			sess.Out.Debug("Repo URL: %s/commit/%s\n", *repo.URL, commit.Hash.String())
 			patch, _ := GetPatch(change)
 			diffs := patch.FilePatches()
@@ -255,7 +278,7 @@ func AnalyzeGitlabRepoContents(sess *GitlabSession, repo *GitlabRepository, clon
 				continue
 			}
 			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-			for _, signature := range ContentSignatures {
+			for _, signature := range Signatures {
 				if signature.Match(matchFile) {
 					latestContent, err := ioutil.ReadFile(pathpkg.Join(dir, path))
 					if err != nil {
