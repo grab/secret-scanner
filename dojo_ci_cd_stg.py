@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 
 """
-Example written  as part of the OWASP DefectDojo and 
+Example written  as part of the OWASP DefectDojo and
 OWASP AppSec Pipeline Security projects
 
 Description: CI/CD example for DefectDojo
@@ -71,7 +71,7 @@ def return_engagement(dd, product_id, user, build_id=None):
         user_id = users.data["objects"][0]["id"]
 
     dojoTime = start_date.strftime("%H:%M:%S")
-    engagementText = "CI/CD Scan for " + product_id + " (" + dojoTime + ")"  
+    engagementText = "CI/CD Scan for " + product_id + " (" + dojoTime + ")"
     if build_id is not None:
         engagementText = engagementText + " - Build #" + build_id
 
@@ -122,7 +122,7 @@ def create_findings(dd, engagement_id, scanner, file, build=None):
             quit()
 
 def summary(dd, engagement_id, test_ids, max_critical=0, max_high=0, max_medium=0):
-        findings = dd.list_findings(engagement_id_in=engagement_id, duplicate="false", active="false", verified="True")
+        findings = dd.list_findings(engagement_id_in=engagement_id, duplicate="false", active="False", verified="True")
         print"=============================================="
         print "Total Number of Vulnerabilities: " + str(findings.data["meta"]["total_count"])
         print"=============================================="
