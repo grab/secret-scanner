@@ -726,13 +726,13 @@ var Signatures = []Signature{
 	// Content signatures
 	PatternSignature{
 		part:        PartContent,
-		match:       regexp.MustCompile(`-[B|b][E|e][G|g][I|i][N|n].*[K|k][E|e][Y|y]-.*`),
+		match:       regexp.MustCompile(`(?i)-{5}begin ([dr]sa|ec|openssh)? private key-{5}`),
 		description: "Private Key",
 		comment:     "",
 	},
 	PatternSignature{
 		part:        PartContent,
-		match:       regexp.MustCompile(`xox[p|b|o|a]-.*`),
+		match:       regexp.MustCompile(`(xox(p-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+|b-[a-z0-9]+-[a-zA-Z0-9]+|a-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+))`),
 		description: "Slack Token",
 		comment:     "",
 	},
