@@ -172,6 +172,7 @@ func NewMatchFile(path string, content string) MatchFile {
 }
 
 var Signatures = []Signature{
+	// Extension signatures
 	SimpleSignature{
 		part:        PartExtension,
 		match:       ".pem",
@@ -280,6 +281,8 @@ var Signatures = []Signature{
 		description: "Password Safe database file",
 		comment:     "",
 	},
+
+	// Filename signatures
 	SimpleSignature{
 		part:        PartFilename,
 		match:       "secret_token.rb",
@@ -720,17 +723,17 @@ var Signatures = []Signature{
 	// 	comment:     "",
 	// },
 
-	// Content matcher
+	// Content signatures
 	PatternSignature{
 		part:        PartContent,
-		match:       regexp.MustCompile(`-{5}begin ([dr]sa|ec|openssh)? private key-{5}`),
-		description: "Contains Private key in file",
+		match:       regexp.MustCompile(`(?i)-{5}begin ([dr]sa|ec|openssh)? private key-{5}`),
+		description: "Private Key",
 		comment:     "",
 	},
 	PatternSignature{
 		part:        PartContent,
 		match:       regexp.MustCompile(`(xox(p-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+|b-[a-z0-9]+-[a-zA-Z0-9]+|a-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+-[a-z0-9]+))`),
-		description: "Contains Slack token",
+		description: "Slack Token",
 		comment:     "",
 	},
 	PatternSignature{
@@ -742,7 +745,43 @@ var Signatures = []Signature{
 	PatternSignature{
 		part:        PartContent,
 		match:       regexp.MustCompile(`(aws|access|key|secret).*(([=:])|(:=))\\s*[\\\"']([A-Za-z0-9\/+=]{40})[\\\"']`),
-		description: "Contains AWS key",
+		description: "AWS key",
+		comment:     "",
+	},
+	PatternSignature{
+		part:        PartContent,
+		match:       regexp.MustCompile(``),
+		description: "AWS Key",
+		comment:     "",
+	},
+	PatternSignature{
+		part:        PartContent,
+		match:       regexp.MustCompile(`[g|G][i|I][t|T][l|L][a|A][b|B].*.[a-zA-Z0-9]{20}`),
+		description: "Gitlab Token",
+		comment:     "",
+	},
+	PatternSignature{
+		part:        PartContent,
+		match:       regexp.MustCompile(`[g|G][i|I][t|T][h|H][u|U][b|B].*[0-9a-zA-Z]{35,40}`),
+		description: "GitHub Token",
+		comment:     "",
+	},
+	PatternSignature{
+		part:        PartContent,
+		match:       regexp.MustCompile(`[t|T][w|W][i|I][t|T][t|T][e|E][r|R].*.[0-9a-zA-Z]{35,44}`),
+		description: "Twitter Oauth 2",
+		comment:     "",
+	},
+	PatternSignature{
+		part:        PartContent,
+		match:       regexp.MustCompile(`[f|F][a|A][c|C][e|E][b|B][o|O][o|O][k|K].*.[0-9a-f]{32}`),
+		description: "Facebook Oauth 2",
+		comment:     "",
+	},
+	PatternSignature{
+		part:        PartContent,
+		match:       regexp.MustCompile(`[c|C][l|L][i|I][e|E][n|N][T|T][_][s|S][e|E][c|C][r|R][e|E][t|T].*[:].*[a-zA-Z0-9-_]{24}`),
+		description: "Google Oauth 2",
 		comment:     "",
 	},
 }
