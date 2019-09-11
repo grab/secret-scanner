@@ -750,12 +750,6 @@ var Signatures = []Signature{
 	},
 	PatternSignature{
 		part:        PartContent,
-		match:       regexp.MustCompile(``),
-		description: "AWS Key",
-		comment:     "",
-	},
-	PatternSignature{
-		part:        PartContent,
 		match:       regexp.MustCompile(`[g|G][i|I][t|T][l|L][a|A][b|B].*.[a-zA-Z0-9]{20}`),
 		description: "Gitlab Token",
 		comment:     "",
