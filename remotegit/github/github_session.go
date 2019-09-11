@@ -2,7 +2,8 @@ package github
 
 import (
 	"context"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"os"
 
 	"github.com/google/go-github/github"
@@ -10,7 +11,7 @@ import (
 )
 
 type GithubSession struct {
-	*scan.Session
+	*session.Session
 	GithubAccessToken string         `json:"-"`
 	GithubClient      *github.Client `json:"-"`
 	Targets           []*GithubOwner
@@ -18,14 +19,13 @@ type GithubSession struct {
 }
 
 func (s *GithubSession) Start() {
-	s.Session.Start()
+	s.Session.Initialize("github")
 	s.InitGithubAccessToken()
 	s.InitGithubClient()
-	// s.InitRouter()
 }
 
 func (s *GithubSession) Finish() {
-	s.Session.Finish()
+	s.Session.End()
 }
 
 func (s *GithubSession) InitGithubAccessToken() {
@@ -76,14 +76,14 @@ func NewGithubSession(options scan.Options) (*GithubSession, error) {
 	var err error
 	var githubRepos []*GithubRepository
 	var targets []*GithubOwner
-	session := GithubSession{&scan.Session{}, "", nil, targets, githubRepos}
-	session.Options = options
-	err = scan.ValidateNewSession(session.Session)
+	sess := GithubSession{&session.Session{}, "", nil, targets, githubRepos}
+	sess.Options = options
+	err = session.ValidateNewSession(sess.Session)
 	if err != nil {
 		return nil, err
 	}
 
-	session.Start()
+	sess.Start()
 
-	return &session, nil
+	return &sess, nil
 }

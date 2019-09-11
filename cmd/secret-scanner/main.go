@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/gitproviders/github"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/gitproviders/gitlab"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/remotegit/github"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/remotegit/gitlab"
 	"os"
 	"time"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
 )
 
 func main() {
@@ -45,7 +45,7 @@ func main() {
 				}
 				sess.Out.Important("Saved session to: %s\n\n", *sess.Options.Save)
 			}
-			scan.PrintSessionStats(sess.Session)
+			sess.Stats.PrintStats(sess.Out)
 		}
 	case "gitlab":
 		sess, err := gitlab.NewGitlabSession(options)
@@ -69,7 +69,7 @@ func main() {
 				}
 				sess.Out.Important("Saved session to: %s\n\n", *sess.Options.Save)
 			}
-			scan.PrintSessionStats(sess.Session)
+			sess.Stats.PrintStats(sess.Out)
 		}
 	default:
 		fmt.Println("Specify version control system to scan (Eg. github, gitlab, bitbucket)")

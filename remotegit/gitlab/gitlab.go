@@ -3,7 +3,9 @@ package gitlab
 import (
 	"fmt"
 	git2 "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/remotegit"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"io/ioutil"
 	"os"
 	pathpkg "path"
@@ -15,25 +17,13 @@ import (
 	"gopkg.in/src-d/go-git.v4"
 )
 
-type GitlabRepository struct {
-	Owner         *string
-	ID            *int
-	Name          *string
-	FullName      *string
-	CloneURL      *string
-	URL           *string
-	DefaultBranch *string
-	Description   *string
-	Homepage      *string
-}
-
 const (
 	GitlabTokenEnvVariable = "GITLAB_TOKEN"
 	GitlabEndpoint         = "https://gitlab.myteksi.net"
 )
 
-func GetAllRepositories(git *gitlab.Client) ([]*GitlabRepository, error) {
-	var allRepos []*GitlabRepository
+func GetAllRepositories(git *gitlab.Client) ([]*remotegit.Repository, error) {
+	var allRepos []*remotegit.Repository
 	opt := &gitlab.ListProjectsOptions{
 		ListOptions: gitlab.ListOptions{
 			PerPage: 50,
@@ -46,16 +36,16 @@ func GetAllRepositories(git *gitlab.Client) ([]*GitlabRepository, error) {
 			return allRepos, err
 		}
 		for _, proj := range projects {
-			r := GitlabRepository{
-				ID:            &proj.ID,
-				Name:          &proj.Name,
-				FullName:      &proj.Name,
-				CloneURL:      &proj.SSHURLToRepo,
-				URL:           &proj.WebURL,
-				DefaultBranch: &proj.DefaultBranch,
-				Description:   &proj.Description,
-				Homepage:      &proj.WebURL,
-				Owner:         nil,
+			r := remotegit.Repository{
+				ID:            int64(proj.ID),
+				Name:          proj.Name,
+				FullName:      proj.Name,
+				CloneURL:      proj.SSHURLToRepo,
+				URL:           proj.WebURL,
+				DefaultBranch: proj.DefaultBranch,
+				Description:   proj.Description,
+				Homepage:      proj.WebURL,
+				Owner:         "",
 			}
 			allRepos = append(allRepos, &r)
 		}
@@ -67,27 +57,27 @@ func GetAllRepositories(git *gitlab.Client) ([]*GitlabRepository, error) {
 	return allRepos, nil
 }
 
-func GetRepository(git *gitlab.Client, id string) (*GitlabRepository, error) {
+func GetRepository(git *gitlab.Client, id string) (*remotegit.Repository, error) {
 	proj, _, err := git.Projects.GetProject(id, nil)
 	if err != nil {
 		return nil, err
 	}
-	repo := &GitlabRepository{
-		ID:            &proj.ID,
-		Name:          &proj.Name,
-		FullName:      &proj.Name,
-		CloneURL:      &proj.SSHURLToRepo,
-		URL:           &proj.WebURL,
-		DefaultBranch: &proj.DefaultBranch,
-		Description:   &proj.Description,
-		Homepage:      &proj.WebURL,
-		Owner:         nil,
+	repo := &remotegit.Repository{
+		ID:            int64(proj.ID),
+		Name:          proj.Name,
+		FullName:      proj.Name,
+		CloneURL:      proj.SSHURLToRepo,
+		URL:           proj.WebURL,
+		DefaultBranch: proj.DefaultBranch,
+		Description:   proj.Description,
+		Homepage:      proj.WebURL,
+		Owner:         "",
 	}
 	return repo, nil
 }
 
 func GatherGitlabRepos(sess *GitlabSession) {
-	var repos []*GitlabRepository
+	var repos []*remotegit.Repository
 	var err error
 	if *sess.Options.Repos != "" {
 		//Fetching the repos prodided in repo-list
@@ -115,7 +105,7 @@ func GatherGitlabRepos(sess *GitlabSession) {
 		}
 	}
 	for _, repo := range repos {
-		sess.Out.Info(" Retrieved repository: %s\n", *repo.FullName)
+		sess.Out.Info(" Retrieved repository: %s\n", repo.FullName)
 		sess.AddGitlabRepository(repo)
 	}
 	sess.Stats.IncrementTargets()
@@ -123,8 +113,8 @@ func GatherGitlabRepos(sess *GitlabSession) {
 }
 
 func AnalyzeGitlabRepositories(sess *GitlabSession) {
-	sess.Stats.Status = scan.StatusAnalyzing
-	var ch = make(chan *GitlabRepository, len(sess.GitlabRepos))
+	sess.Stats.Status = session.StatusAnalyzing
+	var ch = make(chan *remotegit.Repository, len(sess.GitlabRepos))
 	var wg sync.WaitGroup
 	var threadNum int
 	if len(sess.GitlabRepos) <= 1 {
@@ -150,20 +140,20 @@ func AnalyzeGitlabRepositories(sess *GitlabSession) {
 					return
 				}
 
-				sess.Out.Debug("[THREAD #%d][%s] Cloning repository...\n", tid, *repo.FullName)
-				clone, dir, err := git2.CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
+				sess.Out.Debug("[THREAD #%d][%s] Cloning repository...\n", tid, repo.FullName)
+				clone, dir, err := git2.CloneRepository(&repo.CloneURL, &repo.DefaultBranch, *sess.Options.CommitDepth)
 				if err != nil {
 					if err.Error() != "Remote repository is empty" {
-						sess.Out.Error("Error cloning repository %s: %s\n", *repo.FullName, err)
+						sess.Out.Error("Error cloning repository %s: %s\n", repo.FullName, err)
 					}
 					sess.Stats.IncrementRepositories()
 					sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.GitlabRepos))
 					continue
 				}
-				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, *repo.FullName, dir)
+				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, repo.FullName, dir)
 
-				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, *repo.FullName)
-				checkpoint, err := scan.GetCheckpoint(strconv.Itoa(*repo.ID), sess.Store.Connection)
+				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
+				checkpoint, err := scan.GetCheckpoint(strconv.Itoa(int(repo.ID)), sess.Store.Connection)
 				if err != nil {
 					sess.Out.Debug("DB Error: %s\n", err)
 				}
@@ -174,11 +164,11 @@ func AnalyzeGitlabRepositories(sess *GitlabSession) {
 				} else {
 					ScanGitlabRepoLatestCommits(sess, repo, clone, dir, checkpoint)
 				}
-				scan.UpdateCheckpoint(dir, strconv.Itoa(*repo.ID), sess.Store.Connection)
+				scan.UpdateCheckpoint(dir, strconv.Itoa(int(repo.ID)), sess.Store.Connection)
 
-				sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, *repo.FullName)
+				sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, repo.FullName)
 				os.RemoveAll(dir)
-				sess.Out.Debug("[THREAD #%d][%s] Deleted %s\n", tid, *repo.FullName, dir)
+				sess.Out.Debug("[THREAD #%d][%s] Deleted %s\n", tid, repo.FullName, dir)
 				sess.Stats.IncrementRepositories()
 				sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.GitlabRepos))
 			}
@@ -193,13 +183,13 @@ func AnalyzeGitlabRepositories(sess *GitlabSession) {
 
 // ScanGitlabRepoCurrentRevision runs the file scan for complete gitlab repo.
 // It scans only the lastest revision. rather than scanning the entire commit history
-func ScanGitlabRepoCurrentRevision(sess *GitlabSession, repo *GitlabRepository, dir string) {
-	paths, err := scan.GatherPaths(dir, *repo.DefaultBranch)
+func ScanGitlabRepoCurrentRevision(sess *GitlabSession, repo *remotegit.Repository, dir string) {
+	paths, err := scan.GatherPaths(dir, repo.DefaultBranch)
 	if err != nil {
 		sess.Out.Error("Error while fetching the file paths of %s repository: %s\n", dir, err)
 		return
 	}
-	sess.Out.Debug("[THREAD][%s] Fetching repository files of: %s\n", *repo.FullName, dir)
+	sess.Out.Debug("[THREAD][%s] Fetching repository files of: %s\n", repo.FullName, dir)
 	for _, path := range paths {
 		sess.Out.Debug("Path: %s\n", path)
 		content, err := ioutil.ReadFile(pathpkg.Join(dir, path))
@@ -209,10 +199,10 @@ func ScanGitlabRepoCurrentRevision(sess *GitlabSession, repo *GitlabRepository, 
 		}
 		matchFile := scan.NewMatchFile(path, string(content))
 		if matchFile.IsSkippable() {
-			sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
+			sess.Out.Debug("[THREAD][%s] Skipping %s\n", repo.FullName, matchFile.Path)
 			continue
 		}
-		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
+		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
 		for _, signature := range scan.Signatures {
 			if signature.Match(matchFile) {
 				finding := &scan.Finding{
@@ -220,16 +210,16 @@ func ScanGitlabRepoCurrentRevision(sess *GitlabSession, repo *GitlabRepository, 
 					Action:         signature.Part(),
 					Description:    signature.Description(),
 					Comment:        signature.Comment(),
-					RepositoryName: *repo.Name,
-					RepositoryUrl:  *repo.URL,
-					FileUrl:        fmt.Sprintf("%s/blob/%s/%s", *repo.URL, *repo.DefaultBranch, path),
+					RepositoryName: repo.Name,
+					RepositoryUrl:  repo.URL,
+					FileUrl:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, path),
 				}
 				finding.Initialize()
 				sess.AddFinding(finding)
 
-				sess.Out.Warn(" %s: %s\n", strings.ToUpper(scan.PathScan), finding.Description)
+				sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.PathScan), finding.Description)
 				sess.Out.Info("  Path.......: %s\n", finding.FilePath)
-				sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
+				sess.Out.Info("  Repo.......: %s\n", repo.FullName)
 				sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 				sess.Out.Info("  Comment....: %s\n", finding.Comment)
 				sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
@@ -242,27 +232,27 @@ func ScanGitlabRepoCurrentRevision(sess *GitlabSession, repo *GitlabRepository, 
 
 // ScanGitlabRepoLatestCommits run a scan to analyze the diffs present in the commit history
 // It will scan the commit history till the checkpoint (last scanned commit) is reached
-func ScanGitlabRepoLatestCommits(sess *GitlabSession, repo *GitlabRepository, clone *git.Repository, dir, checkpoint string) {
+func ScanGitlabRepoLatestCommits(sess *GitlabSession, repo *remotegit.Repository, clone *git.Repository, dir, checkpoint string) {
 	history, err := git2.GetRepositoryHistory(clone)
 	if err != nil {
-		sess.Out.Error("[THREAD][%s] Error getting commit history: %s\n", *repo.FullName, err)
+		sess.Out.Error("[THREAD][%s] Error getting commit history: %s\n", repo.FullName, err)
 		return
 	}
-	sess.Out.Debug("[THREAD][%s] Number of commits: %d\n", *repo.FullName, len(history))
+	sess.Out.Debug("[THREAD][%s] Number of commits: %d\n", repo.FullName, len(history))
 
 	for _, commit := range history {
 		if strings.TrimSpace(commit.Hash.String()) == strings.TrimSpace(checkpoint) {
 			sess.Out.Debug("\nCheckpoint Reached !!\n")
 			break
 		}
-		sess.Out.Debug("[THREAD][%s] Analyzing commit: %s\n", *repo.FullName, commit.Hash)
+		sess.Out.Debug("[THREAD][%s] Analyzing commit: %s\n", repo.FullName, commit.Hash)
 		changes, _ := git2.GetChanges(commit, clone)
-		sess.Out.Debug("[THREAD][%s] Changes in %s: %d\n", *repo.FullName, commit.Hash, len(changes))
+		sess.Out.Debug("[THREAD][%s] Changes in %s: %d\n", repo.FullName, commit.Hash, len(changes))
 		for _, change := range changes {
 			path := git2.GetChangePath(change)
 			allContent := ""
 			sess.Out.Debug("FILE: %s/%s\n", dir, path)
-			sess.Out.Debug("Repo URL: %s/commit/%s\n", *repo.URL, commit.Hash.String())
+			sess.Out.Debug("Repo URL: %s/commit/%s\n", repo.URL, commit.Hash.String())
 			patch, _ := git2.GetPatch(change)
 			diffs := patch.FilePatches()
 			for _, diff := range diffs {
@@ -276,10 +266,10 @@ func ScanGitlabRepoLatestCommits(sess *GitlabSession, repo *GitlabRepository, cl
 			}
 			matchFile := scan.NewMatchFile(path, allContent)
 			if matchFile.IsSkippable() {
-				sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
+				sess.Out.Debug("[THREAD][%s] Skipping %s\n", repo.FullName, matchFile.Path)
 				continue
 			}
-			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
+			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
 			for _, signature := range scan.Signatures {
 				if signature.Match(matchFile) {
 					latestContent, err := ioutil.ReadFile(pathpkg.Join(dir, path))
@@ -291,23 +281,23 @@ func ScanGitlabRepoLatestCommits(sess *GitlabSession, repo *GitlabRepository, cl
 					if signature.Match(matchFile) {
 						finding := &scan.Finding{
 							FilePath:       path,
-							Action:         scan.ContentScan,
+							Action:         session.ContentScan,
 							Description:    signature.Description(),
 							Comment:        signature.Comment(),
-							RepositoryName: *repo.Name,
+							RepositoryName: repo.Name,
 							CommitHash:     commit.Hash.String(),
 							CommitMessage:  strings.TrimSpace(commit.Message),
 							CommitAuthor:   commit.Author.String(),
-							RepositoryUrl:  *repo.URL,
-							FileUrl:        fmt.Sprintf("%s/blob/%s/%s", *repo.URL, *repo.DefaultBranch, path),
-							CommitUrl:      fmt.Sprintf("%s/commit/%s", *repo.URL, commit.Hash.String()),
+							RepositoryUrl:  repo.URL,
+							FileUrl:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, path),
+							CommitUrl:      fmt.Sprintf("%s/commit/%s", repo.URL, commit.Hash.String()),
 						}
 						finding.Initialize()
 						sess.AddFinding(finding)
 
-						sess.Out.Warn(" %s: %s\n", strings.ToUpper(scan.ContentScan), finding.Description)
+						sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.ContentScan), finding.Description)
 						sess.Out.Info("  Path.......: %s\n", finding.FilePath)
-						sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
+						sess.Out.Info("  Repo.......: %s\n", repo.FullName)
 						sess.Out.Info("  Message....: %s\n", scan.TruncateString(finding.CommitMessage, 100))
 						sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 						sess.Out.Info("  Comment....: %s\n", finding.Comment)
@@ -321,6 +311,6 @@ func ScanGitlabRepoLatestCommits(sess *GitlabSession, repo *GitlabRepository, cl
 			sess.Stats.IncrementFiles()
 		}
 		sess.Stats.IncrementCommits()
-		sess.Out.Debug("[THREAD][%s] Done analyzing changes in %s\n", *repo.FullName, commit.Hash)
+		sess.Out.Debug("[THREAD][%s] Done analyzing changes in %s\n", repo.FullName, commit.Hash)
 	}
 }

@@ -1,27 +1,29 @@
 package gitlab
 
 import (
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/remotegit"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"os"
 
 	"github.com/xanzy/go-gitlab"
 )
 
 type GitlabSession struct {
-	*scan.Session
+	*session.Session
 	GitlabAccessToken string         `json:"-"`
 	GitlabClient      *gitlab.Client `json:"-"`
-	GitlabRepos       []*GitlabRepository
+	GitlabRepos       []*remotegit.Repository
 }
 
 func (s *GitlabSession) Start() {
-	s.Session.Start()
+	s.Session.Initialize("gitlab")
 	s.InitGitlabAccessToken()
 	s.InitGitlabClient()
 }
 
 func (s *GitlabSession) Finish() {
-	s.Session.Finish()
+	s.Session.End()
 }
 
 func (s *GitlabSession) InitGitlabAccessToken() {
@@ -37,11 +39,11 @@ func (s *GitlabSession) InitGitlabClient() {
 	s.GitlabClient.SetBaseURL(GitlabEndpoint)
 }
 
-func (s *GitlabSession) AddGitlabRepository(repository *GitlabRepository) {
+func (s *GitlabSession) AddGitlabRepository(repository *remotegit.Repository) {
 	s.Lock()
 	defer s.Unlock()
 	for _, r := range s.GitlabRepos {
-		if *repository.ID == *r.ID {
+		if repository.ID == r.ID {
 			return
 		}
 	}
@@ -50,13 +52,13 @@ func (s *GitlabSession) AddGitlabRepository(repository *GitlabRepository) {
 
 func NewGitlabSession(options scan.Options) (*GitlabSession, error) {
 	var err error
-	var gitlabRepos []*GitlabRepository
-	session := GitlabSession{&scan.Session{}, "", nil, gitlabRepos}
-	session.Options = options
-	err = scan.ValidateNewSession(session.Session)
+	var gitlabRepos []*remotegit.Repository
+	sess := GitlabSession{&session.Session{}, "", nil, gitlabRepos}
+	sess.Options = options
+	err = session.ValidateNewSession(sess.Session)
 	if err != nil {
 		return nil, err
 	}
-	session.Start()
-	return &session, nil
+	sess.Start()
+	return &sess, nil
 }

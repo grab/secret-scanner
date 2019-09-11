@@ -4,7 +4,8 @@ import (
 	"context"
 	"fmt"
 	git2 "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"io/ioutil"
 	"os"
 	pathpkg "path"
@@ -128,7 +129,7 @@ func GetOrganizationMembers(login *string, client *github.Client) ([]*GithubOwne
 }
 
 func GatherTargets(sess *GithubSession) {
-	sess.Stats.Status = scan.StatusGathering
+	sess.Stats.Status = session.StatusGathering
 	sess.Out.Important("Gathering targets...\n")
 	for _, login := range sess.Options.Logins {
 		target, err := GetUserOrOrganization(login, sess.GithubClient)
@@ -199,7 +200,7 @@ func GatherRepositories(sess *GithubSession) {
 }
 
 func AnalyzeRepositories(sess *GithubSession) {
-	sess.Stats.Status = scan.StatusAnalyzing
+	sess.Stats.Status = session.StatusAnalyzing
 	var ch = make(chan *GithubRepository, len(sess.Repositories))
 	var wg sync.WaitGroup
 	var threadNum int
@@ -311,7 +312,7 @@ func ScanGithubRepoCurrentRevision(sess *GithubSession, repo *GithubRepository, 
 				finding.Initialize()
 				sess.AddFinding(finding)
 
-				sess.Out.Warn(" %s: %s\n", strings.ToUpper(scan.PathScan), finding.Description)
+				sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.PathScan), finding.Description)
 				sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
 				sess.Out.Info("  Path.......: %s\n", finding.FilePath)
 				sess.Out.Info("  Comment....: %s\n", finding.Comment)
@@ -375,7 +376,7 @@ func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, cl
 					if signature.Match(matchFile) {
 						finding := &scan.Finding{
 							FilePath:        path,
-							Action:          scan.ContentScan,
+							Action:          session.ContentScan,
 							Description:     signature.Description(),
 							Comment:         signature.Comment(),
 							RepositoryOwner: *repo.Owner,
@@ -390,7 +391,7 @@ func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, cl
 						finding.Initialize()
 						sess.AddFinding(finding)
 
-						sess.Out.Warn(" %s: %s\n", strings.ToUpper(scan.ContentScan), finding.Description)
+						sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.ContentScan), finding.Description)
 						sess.Out.Info("  Path.......: %s\n", finding.FilePath)
 						sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
 						sess.Out.Info("  Message....: %s\n", scan.TruncateString(finding.CommitMessage, 100))
