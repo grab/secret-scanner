@@ -1,7 +1,8 @@
-package core
+package github
 
 import (
 	"context"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
 	"os"
 
 	"github.com/google/go-github/github"
@@ -9,7 +10,7 @@ import (
 )
 
 type GithubSession struct {
-	*Session
+	*scan.Session
 	GithubAccessToken string         `json:"-"`
 	GithubClient      *github.Client `json:"-"`
 	Targets           []*GithubOwner
@@ -71,13 +72,13 @@ func (s *GithubSession) AddRepository(repository *GithubRepository) {
 	s.Repositories = append(s.Repositories, repository)
 }
 
-func NewGithubSession(options Options) (*GithubSession, error) {
+func NewGithubSession(options scan.Options) (*GithubSession, error) {
 	var err error
 	var githubRepos []*GithubRepository
 	var targets []*GithubOwner
-	session := GithubSession{&Session{}, "", nil, targets, githubRepos}
+	session := GithubSession{&scan.Session{}, "", nil, targets, githubRepos}
 	session.Options = options
-	err = ValidateNewSession(session.Session)
+	err = scan.ValidateNewSession(session.Session)
 	if err != nil {
 		return nil, err
 	}

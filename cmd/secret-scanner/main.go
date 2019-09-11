@@ -2,14 +2,16 @@ package main
 
 import (
 	"fmt"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/gitproviders/github"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/gitproviders/gitlab"
 	"os"
 	"time"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/core"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
 )
 
 func main() {
-	options, err := core.ParseOptions()
+	options, err := scan.ParseOptions()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -17,13 +19,13 @@ func main() {
 
 	switch *options.Source {
 	case "github":
-		sess, err := core.NewGithubSession(options)
+		sess, err := github.NewGithubSession(options)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		sess.Out.Important("Github Scanning Started at %s\n", sess.Stats.StartedAt.Format(time.RFC3339))
-		sess.Out.Important("Loaded %d signatures\n", len(core.Signatures))
+		sess.Out.Important("Loaded %d signatures\n", len(scan.Signatures))
 		if sess.Stats.Status == "finished" {
 			sess.Out.Important("Loaded session file: %s\n", *sess.Options.Load)
 		} else {
@@ -31,9 +33,9 @@ func main() {
 				sess.Out.Fatal("Please provide at least one GitHub organization or user\n")
 			}
 
-			core.GatherTargets(sess)
-			core.GatherRepositories(sess)
-			core.AnalyzeRepositories(sess)
+			github.GatherTargets(sess)
+			github.GatherRepositories(sess)
+			github.AnalyzeRepositories(sess)
 			sess.Finish()
 			sess.Out.Important("Github Scanning Finished at %s\n", sess.Stats.FinishedAt.Format(time.RFC3339))
 			if *sess.Options.Save != "" {
@@ -43,21 +45,21 @@ func main() {
 				}
 				sess.Out.Important("Saved session to: %s\n\n", *sess.Options.Save)
 			}
-			core.PrintSessionStats(sess.Session)
+			scan.PrintSessionStats(sess.Session)
 		}
 	case "gitlab":
-		sess, err := core.NewGitlabSession(options)
+		sess, err := gitlab.NewGitlabSession(options)
 		if err != nil {
 			fmt.Println(err)
 			os.Exit(1)
 		}
 		sess.Out.Important("Gitlab Scanning Started at %s\n", sess.Stats.StartedAt.Format(time.RFC3339))
-		sess.Out.Important("Loaded %d signatures\n", len(core.Signatures))
+		sess.Out.Important("Loaded %d signatures\n", len(scan.Signatures))
 		if sess.Stats.Status == "finished" {
 			sess.Out.Important("Loaded session file: %s\n", *sess.Options.Load)
 		} else {
-			core.GatherGitlabRepos(sess)
-			core.AnalyzeGitlabRepositories(sess)
+			gitlab.GatherGitlabRepos(sess)
+			gitlab.AnalyzeGitlabRepositories(sess)
 			sess.Finish()
 			sess.Out.Important("Gitlab Scanning Finished at %s\n", sess.Stats.FinishedAt.Format(time.RFC3339))
 			if *sess.Options.Save != "" {
@@ -67,7 +69,7 @@ func main() {
 				}
 				sess.Out.Important("Saved session to: %s\n\n", *sess.Options.Save)
 			}
-			core.PrintSessionStats(sess.Session)
+			scan.PrintSessionStats(sess.Session)
 		}
 	default:
 		fmt.Println("Specify version control system to scan (Eg. github, gitlab, bitbucket)")

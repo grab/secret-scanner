@@ -1,13 +1,14 @@
-package core
+package gitlab
 
 import (
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
 	"os"
 
 	"github.com/xanzy/go-gitlab"
 )
 
 type GitlabSession struct {
-	*Session
+	*scan.Session
 	GitlabAccessToken string         `json:"-"`
 	GitlabClient      *gitlab.Client `json:"-"`
 	GitlabRepos       []*GitlabRepository
@@ -47,12 +48,12 @@ func (s *GitlabSession) AddGitlabRepository(repository *GitlabRepository) {
 	s.GitlabRepos = append(s.GitlabRepos, repository)
 }
 
-func NewGitlabSession(options Options) (*GitlabSession, error) {
+func NewGitlabSession(options scan.Options) (*GitlabSession, error) {
 	var err error
 	var gitlabRepos []*GitlabRepository
-	session := GitlabSession{&Session{}, "", nil, gitlabRepos}
+	session := GitlabSession{&scan.Session{}, "", nil, gitlabRepos}
 	session.Options = options
-	err = ValidateNewSession(session.Session)
+	err = scan.ValidateNewSession(session.Session)
 	if err != nil {
 		return nil, err
 	}

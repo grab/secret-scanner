@@ -1,8 +1,10 @@
-package core
+package github
 
 import (
 	"context"
 	"fmt"
+	git2 "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scan"
 	"io/ioutil"
 	"os"
 	pathpkg "path"
@@ -126,7 +128,7 @@ func GetOrganizationMembers(login *string, client *github.Client) ([]*GithubOwne
 }
 
 func GatherTargets(sess *GithubSession) {
-	sess.Stats.Status = StatusGathering
+	sess.Stats.Status = scan.StatusGathering
 	sess.Out.Important("Gathering targets...\n")
 	for _, login := range sess.Options.Logins {
 		target, err := GetUserOrOrganization(login, sess.GithubClient)
@@ -184,7 +186,7 @@ func GatherRepositories(sess *GithubSession) {
 					sess.AddRepository(repo)
 				}
 				sess.Stats.IncrementTargets()
-				sess.Out.Info(" Retrieved %d %s from %s\n", len(repos), Pluralize(len(repos), "repository", "repositories"), *target.Login)
+				sess.Out.Info(" Retrieved %d %s from %s\n", len(repos), scan.Pluralize(len(repos), "repository", "repositories"), *target.Login)
 			}
 		}()
 	}
@@ -197,7 +199,7 @@ func GatherRepositories(sess *GithubSession) {
 }
 
 func AnalyzeRepositories(sess *GithubSession) {
-	sess.Stats.Status = StatusAnalyzing
+	sess.Stats.Status = scan.StatusAnalyzing
 	var ch = make(chan *GithubRepository, len(sess.Repositories))
 	var wg sync.WaitGroup
 	var threadNum int
@@ -211,7 +213,7 @@ func AnalyzeRepositories(sess *GithubSession) {
 	wg.Add(threadNum)
 	sess.Out.Debug("Threads for repository analysis: %d\n", threadNum)
 
-	sess.Out.Important("Analyzing %d %s...\n", len(sess.Repositories), Pluralize(len(sess.Repositories), "repository", "repositories"))
+	sess.Out.Important("Analyzing %d %s...\n", len(sess.Repositories), scan.Pluralize(len(sess.Repositories), "repository", "repositories"))
 
 	for i := 0; i < threadNum; i++ {
 		go func(tid int) {
@@ -225,7 +227,7 @@ func AnalyzeRepositories(sess *GithubSession) {
 				}
 
 				sess.Out.Debug("[THREAD #%d][%s] Cloning repository...\n", tid, *repo.FullName)
-				clone, dir, err := CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
+				clone, dir, err := git2.CloneRepository(repo.CloneURL, repo.DefaultBranch, *sess.Options.CommitDepth)
 				if err != nil {
 					if err.Error() != "remote repository is empty" {
 						sess.Out.Error("Error cloning repository %s: %s\n", *repo.FullName, err)
@@ -242,7 +244,7 @@ func AnalyzeRepositories(sess *GithubSession) {
 				// AnalyzeGithubRepoContents(sess, repo, clone, dir)
 
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, *repo.FullName)
-				checkpoint, err := GetCheckpoint(strconv.FormatInt(*repo.ID, BASE), sess.Store.Connection)
+				checkpoint, err := scan.GetCheckpoint(strconv.FormatInt(*repo.ID, BASE), sess.Store.Connection)
 				if err != nil {
 					sess.Out.Debug("DB Error: %s\n", err)
 				}
@@ -253,7 +255,7 @@ func AnalyzeRepositories(sess *GithubSession) {
 				} else {
 					ScanGithubRepoLatestCommits(sess, repo, clone, dir, checkpoint)
 				}
-				UpdateCheckpoint(dir, strconv.FormatInt(*repo.ID, BASE), sess.Store.Connection)
+				scan.UpdateCheckpoint(dir, strconv.FormatInt(*repo.ID, BASE), sess.Store.Connection)
 
 				sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, *repo.FullName)
 				os.RemoveAll(dir)
@@ -274,7 +276,7 @@ func AnalyzeRepositories(sess *GithubSession) {
 // It scans only the lastest revision. rather than scanning the entire commit history
 func ScanGithubRepoCurrentRevision(sess *GithubSession, repo *GithubRepository, dir string) {
 	sess.Out.Debug(" Fetching %s repository files.\n", *repo.FullName)
-	paths, err := GatherPaths(dir, *repo.DefaultBranch)
+	paths, err := scan.GatherPaths(dir, *repo.DefaultBranch)
 	if err != nil {
 		sess.Out.Error("Error while fetching the file paths of %s repository: %s\n", dir, err)
 		return
@@ -287,16 +289,16 @@ func ScanGithubRepoCurrentRevision(sess *GithubSession, repo *GithubRepository, 
 			sess.Out.Error("[FILE NOT FOUND]: %s/%s\n", dir, path)
 			continue
 		}
-		matchFile := NewMatchFile(path, string(content))
+		matchFile := scan.NewMatchFile(path, string(content))
 		if matchFile.IsSkippable() {
 			sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
 			continue
 		}
 		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-		for _, signature := range Signatures {
+		for _, signature := range scan.Signatures {
 			if signature.Match(matchFile) {
 
-				finding := &Finding{
+				finding := &scan.Finding{
 					FilePath:        path,
 					Action:          signature.Part(),
 					Description:     signature.Description(),
@@ -309,7 +311,7 @@ func ScanGithubRepoCurrentRevision(sess *GithubSession, repo *GithubRepository, 
 				finding.Initialize()
 				sess.AddFinding(finding)
 
-				sess.Out.Warn(" %s: %s\n", strings.ToUpper(PathScan), finding.Description)
+				sess.Out.Warn(" %s: %s\n", strings.ToUpper(scan.PathScan), finding.Description)
 				sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
 				sess.Out.Info("  Path.......: %s\n", finding.FilePath)
 				sess.Out.Info("  Comment....: %s\n", finding.Comment)
@@ -324,7 +326,7 @@ func ScanGithubRepoCurrentRevision(sess *GithubSession, repo *GithubRepository, 
 // ScanGithubRepoLatestCommits run a scan to analyze the diffs present in the commit history
 // It will scan the commit history till the checkpoint (last scanned commit) is reached
 func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, clone *git.Repository, dir, checkpoint string) {
-	history, err := GetRepositoryHistory(clone)
+	history, err := git2.GetRepositoryHistory(clone)
 	if err != nil {
 		sess.Out.Error("[THREAD][%s] Error getting commit history: %s\n", *repo.FullName, err)
 		return
@@ -337,14 +339,14 @@ func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, cl
 			break
 		}
 		sess.Out.Debug("[THREAD][%s] Analyzing commit: %s\n", *repo.FullName, commit.Hash)
-		changes, _ := GetChanges(commit, clone)
+		changes, _ := git2.GetChanges(commit, clone)
 		sess.Out.Debug("[THREAD][%s] Changes in %s: %d\n", *repo.FullName, commit.Hash, len(changes))
 		for _, change := range changes {
-			path := GetChangePath(change)
+			path := git2.GetChangePath(change)
 			allContent := ""
 			sess.Out.Debug("FILE: %s/%s\n", dir, path)
 			sess.Out.Debug("Repo URL: %s/commit/%s\n", *repo.URL, commit.Hash.String())
-			patch, _ := GetPatch(change)
+			patch, _ := git2.GetPatch(change)
 			diffs := patch.FilePatches()
 			for _, diff := range diffs {
 				chunks := diff.Chunks()
@@ -355,13 +357,13 @@ func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, cl
 					}
 				}
 			}
-			matchFile := NewMatchFile(path, allContent)
+			matchFile := scan.NewMatchFile(path, allContent)
 			if matchFile.IsSkippable() {
 				sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
 				continue
 			}
 			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-			for _, signature := range Signatures {
+			for _, signature := range scan.Signatures {
 				if signature.Match(matchFile) {
 					// check if the matched signature is still present in the latest revision
 					latestContent, err := ioutil.ReadFile(pathpkg.Join(dir, path))
@@ -369,11 +371,11 @@ func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, cl
 						sess.Out.Info("[LATEST FILE NOT FOUND]: %s/%s\n", dir, path)
 						continue
 					}
-					matchFile = NewMatchFile(path, string(latestContent))
+					matchFile = scan.NewMatchFile(path, string(latestContent))
 					if signature.Match(matchFile) {
-						finding := &Finding{
+						finding := &scan.Finding{
 							FilePath:        path,
-							Action:          ContentScan,
+							Action:          scan.ContentScan,
 							Description:     signature.Description(),
 							Comment:         signature.Comment(),
 							RepositoryOwner: *repo.Owner,
@@ -388,10 +390,10 @@ func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, cl
 						finding.Initialize()
 						sess.AddFinding(finding)
 
-						sess.Out.Warn(" %s: %s\n", strings.ToUpper(ContentScan), finding.Description)
+						sess.Out.Warn(" %s: %s\n", strings.ToUpper(scan.ContentScan), finding.Description)
 						sess.Out.Info("  Path.......: %s\n", finding.FilePath)
 						sess.Out.Info("  Repo.......: %s\n", *repo.FullName)
-						sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
+						sess.Out.Info("  Message....: %s\n", scan.TruncateString(finding.CommitMessage, 100))
 						sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 						sess.Out.Info("  Comment....: %s\n", finding.Comment)
 						sess.Out.Info("  File URL...: %s\n", finding.FileUrl)

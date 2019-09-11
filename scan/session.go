@@ -1,16 +1,17 @@
-package core
+package scan
 
 import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/log"
 	"io/ioutil"
 	"os"
 	"runtime"
 	"sync"
 	"time"
 
-	db "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
 )
 
 const (
@@ -39,8 +40,8 @@ type Stats struct {
 type Session struct {
 	sync.Mutex
 
-	Options  Options `json:"-"`
-	Out      *Logger `json:"-"`
+	Options  Options     `json:"-"`
+	Out      *log.Logger `json:"-"`
 	Stats    *Stats
 	Findings []*Finding
 	Store    *db.MysqlHandler
@@ -81,7 +82,7 @@ func (s *Session) InitStats() {
 }
 
 func (s *Session) InitLogger() {
-	s.Out = &Logger{}
+	s.Out = &log.Logger{}
 	s.Out.SetDebug(*s.Options.Debug)
 	s.Out.SetSilent(*s.Options.Silent)
 }

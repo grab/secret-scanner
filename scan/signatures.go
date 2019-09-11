@@ -1,4 +1,4 @@
-package core
+package scan
 
 import (
 	"crypto/sha1"
