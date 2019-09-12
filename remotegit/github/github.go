@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	git2 "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/signatures"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"io/ioutil"
@@ -290,16 +291,16 @@ func ScanGithubRepoCurrentRevision(sess *GithubSession, repo *GithubRepository, 
 			sess.Out.Error("[FILE NOT FOUND]: %s/%s\n", dir, path)
 			continue
 		}
-		matchFile := scan.NewMatchFile(path, string(content))
+		matchFile := signatures.NewMatchFile(path, string(content))
 		if matchFile.IsSkippable() {
 			sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
 			continue
 		}
 		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-		for _, signature := range scan.Signatures {
+		for _, signature := range signatures.Signatures {
 			if signature.Match(matchFile) {
 
-				finding := &scan.Finding{
+				finding := &signatures.Finding{
 					FilePath:        path,
 					Action:          signature.Part(),
 					Description:     signature.Description(),
@@ -358,13 +359,13 @@ func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, cl
 					}
 				}
 			}
-			matchFile := scan.NewMatchFile(path, allContent)
+			matchFile := signatures.NewMatchFile(path, allContent)
 			if matchFile.IsSkippable() {
 				sess.Out.Debug("[THREAD][%s] Skipping %s\n", *repo.FullName, matchFile.Path)
 				continue
 			}
 			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", *repo.FullName, matchFile.Path)
-			for _, signature := range scan.Signatures {
+			for _, signature := range signatures.Signatures {
 				if signature.Match(matchFile) {
 					// check if the matched signature is still present in the latest revision
 					latestContent, err := ioutil.ReadFile(pathpkg.Join(dir, path))
@@ -372,9 +373,9 @@ func ScanGithubRepoLatestCommits(sess *GithubSession, repo *GithubRepository, cl
 						sess.Out.Info("[LATEST FILE NOT FOUND]: %s/%s\n", dir, path)
 						continue
 					}
-					matchFile = scan.NewMatchFile(path, string(latestContent))
+					matchFile = signatures.NewMatchFile(path, string(latestContent))
 					if signature.Match(matchFile) {
-						finding := &scan.Finding{
+						finding := &signatures.Finding{
 							FilePath:        path,
 							Action:          session.ContentScan,
 							Description:     signature.Description(),

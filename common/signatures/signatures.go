@@ -1,4 +1,4 @@
-package scan
+package signatures
 
 import (
 	"crypto/sha1"

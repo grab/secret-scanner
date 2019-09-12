@@ -1,4 +1,4 @@
-package scan
+package options
 
 import (
 	"flag"
@@ -11,16 +11,16 @@ type Options struct {
 	Threads           *int
 	Save              *string `json:"-"`
 	Load              *string `json:"-"`
-	BindAddress       *string
-	Port              *int
 	Silent            *bool
 	Debug             *bool
 	Logins            []string
-	Source            *string
+
+	GitProvider       *string
+	EnvFilePath       *string
 	Repos             *string
 }
 
-func ParseOptions() (Options, error) {
+func Parse() (Options, error) {
 	options := Options{
 		CommitDepth:       flag.Int("commit-depth", 500, "Number of repository commits to process"),
 		GithubAccessToken: flag.String("github-access-token", "", "GitHub access token to use for API requests"),
@@ -28,11 +28,11 @@ func ParseOptions() (Options, error) {
 		Threads:           flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
 		Save:              flag.String("save", "", "Save session to file"),
 		Load:              flag.String("load", "", "Load session file"),
-		BindAddress:       flag.String("bind-address", "127.0.0.1", "Address to bind web server to"),
-		Port:              flag.Int("port", 9393, "Port to run web server on"),
 		Silent:            flag.Bool("silent", false, "Suppress all output except for errors"),
 		Debug:             flag.Bool("debug", false, "Print debugging information"),
-		Source:            flag.String("source", "", "Specify version control system to scan (Eg. github, gitlab, bitbucket)"),
+
+		GitProvider:       flag.String("git-provider", "", "Specify version control system to scan (Eg. github, gitlab, bitbucket)"),
+		EnvFilePath:       flag.String("env", "", ".env file path containing Git provider base URL and tokens"),
 		Repos:             flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
 	}
 

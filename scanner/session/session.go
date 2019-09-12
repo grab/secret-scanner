@@ -5,7 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/log"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/signatures"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/stats"
 	"io/ioutil"
 	"os"
@@ -19,34 +22,20 @@ import (
 type Session struct {
 	sync.Mutex
 
-	Options  scan.Options `json:"-"`
-	Out      *log.Logger  `json:"-"`
-	Stats    *stats.Stats
-	Findings []*scan.Finding
-	Store    *db.MysqlHandler
-	//RemoteGitClients *RemoteGitClients
+	Options      options.Options `json:"-"`
+	Out          *log.Logger     `json:"-"`
+	Stats        *stats.Stats
+	Findings     []*signatures.Finding
+	Store        *db.MysqlHandler
+	Repositories []*gitprovider.Repository
 }
 
-func (s *Session) Initialize(remoteGitType string) {
-	//s.RemoteGitClients = &RemoteGitClients{}
-
-	//switch remoteGitType {
-	//case "gitlab":
-	//	s.RemoteGitClients.Gitlab = gitlab.NewClient(nil, s.GitlabAccessToken)
-	//}
-	s.Stats = &stats.Stats{
-		StartedAt:    time.Now(),
-		Status:       StatusInitializing,
-		Progress:     0.0,
-		Targets:      0,
-		Repositories: 0,
-		Commits:      0,
-		Files:        0,
-		Findings:     0,
-	}
+func (s *Session) Initialize(options options.Options) {
+	s.Options = options
 	s.InitLogger()
-	s.InitThreads()
 	s.InitDB()
+	s.InitStats()
+	s.InitThreads()
 }
 
 func (s *Session) End() {
@@ -81,6 +70,19 @@ func (s *Session) InitDB() {
 	}
 }
 
+func (s *Session) InitStats() {
+	s.Stats = &stats.Stats{
+		StartedAt:    time.Now(),
+		Status:       StatusInitializing,
+		Progress:     0.0,
+		Targets:      0,
+		Repositories: 0,
+		Commits:      0,
+		Files:        0,
+		Findings:     0,
+	}
+}
+
 func (s *Session) InitThreads() {
 	if *s.Options.Threads == 0 {
 		numCPUs := runtime.NumCPU()
@@ -89,7 +91,7 @@ func (s *Session) InitThreads() {
 	runtime.GOMAXPROCS(*s.Options.Threads + 2) // thread count + main + web server
 }
 
-func (s *Session) AddFinding(finding *scan.Finding) {
+func (s *Session) AddFinding(finding *signatures.Finding) {
 	s.Lock()
 	defer s.Unlock()
 	s.Findings = append(s.Findings, finding)
@@ -105,6 +107,17 @@ func (s *Session) SaveToFile(location string) error {
 		return err
 	}
 	return nil
+}
+
+func (s *Session) AddGitlabRepository(repository *gitprovider.Repository) {
+	s.Lock()
+	defer s.Unlock()
+	for _, r := range s.Repositories {
+		if repository.ID == r.ID {
+			return
+		}
+	}
+	s.Repositories = append(s.Repositories, repository)
 }
 
 func ValidateNewSession(session *Session) error {

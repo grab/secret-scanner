@@ -1,10 +1,7 @@
 package gitprovider
 
 type GitProvider interface {
-	ValidateAdditionalParams() bool
-}
-
-type Providers struct {
-	Gitlab *GitlabProvider
-	Github *GithubProvider
+	Initialize(baseURL, token string, additionalParams map[string]string) error
+	ValidateAdditionalParams(additionalParams map[string]string) bool
+	GetRepository(id string) (*Repository, error)
 }

@@ -2,7 +2,7 @@ package github
 
 import (
 	"context"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"os"
 
@@ -19,7 +19,7 @@ type GithubSession struct {
 }
 
 func (s *GithubSession) Start() {
-	s.Session.Initialize("github")
+	s.Session.Initialize(s.Options)
 	s.InitGithubAccessToken()
 	s.InitGithubClient()
 }
@@ -72,7 +72,7 @@ func (s *GithubSession) AddRepository(repository *GithubRepository) {
 	s.Repositories = append(s.Repositories, repository)
 }
 
-func NewGithubSession(options scan.Options) (*GithubSession, error) {
+func NewGithubSession(options options.Options) (*GithubSession, error) {
 	var err error
 	var githubRepos []*GithubRepository
 	var targets []*GithubOwner

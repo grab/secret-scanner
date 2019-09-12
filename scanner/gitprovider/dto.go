@@ -1,4 +1,4 @@
-package remotegit
+package gitprovider
 
 type Repository struct {
 	Owner         string

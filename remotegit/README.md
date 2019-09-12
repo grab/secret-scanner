@@ -1,0 +1,1 @@
+`remotegit` package TO BE DEPRECATED
