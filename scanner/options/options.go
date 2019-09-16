@@ -22,6 +22,7 @@ type Options struct {
 	RepoID            *string
 	ScanTargets       *string
 	Repos             *string
+	GitScanPath       *string
 }
 
 func (o Options) ValidateOptions() error {
@@ -60,6 +61,7 @@ func Parse() (Options, error) {
 		RepoID:            flag.String("repo-id", "", "Scan the repository with this ID"),
 		ScanTargets:       flag.String("scan-targets", "", "Comma separated list of sub-directories within the repository to scan"),
 		Repos:             flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
+		GitScanPath:       flag.String("git-scan-path", "", "Specify the local path to scan"),
 	}
 
 	flag.Parse()

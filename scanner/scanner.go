@@ -17,6 +17,11 @@ import (
 )
 
 func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
+	if *sess.Options.GitScanPath != "" {
+		LocalGitScan(sess, gitProvider)
+		return
+	}
+
 	gatherRepositories(sess, gitProvider)
 
 	sess.Stats.Status = session.StatusAnalyzing
@@ -102,6 +107,48 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 	wg.Wait()
 
 	sess.End()
+}
+
+func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
+	sess.Stats.Status = session.StatusAnalyzing
+
+	// Gather scan targets
+	targets := sess.Options.ParseScanTargets()
+	targetPaths, err := scan.GatherPaths(*sess.Options.GitScanPath, "master", targets)
+	if err != nil {
+		sess.Out.Error("Failed to gather target paths for repo: %v", *sess.Options.GitScanPath)
+		return
+	}
+
+	targetPathMap := map[string]string{}
+	for _, tp := range targetPaths {
+		stat, err := os.Stat(path.Join(*sess.Options.GitScanPath, tp))
+		if err != nil {
+			continue
+		}
+		if stat.IsDir() {
+			continue
+		}
+		targetPathMap[path.Join(*sess.Options.GitScanPath, tp)] = tp
+	}
+
+	repo := &gitprovider.Repository{
+		Owner:         "",
+		ID:            0,
+		Name:          "",
+		FullName:      *sess.Options.GitScanPath,
+		CloneURL:      "",
+		URL:           "",
+		DefaultBranch: "",
+		Description:   "",
+		Homepage:      "",
+	}
+
+	// Scan
+	scanCurrentGitRevision(sess, repo, *sess.Options.GitScanPath, targetPathMap)
+
+	sess.Stats.IncrementRepositories()
+	sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
 }
 
 func gatherRepositories(sess *session.Session, gitProvider gitprovider.GitProvider) {
