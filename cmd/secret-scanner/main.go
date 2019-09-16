@@ -21,6 +21,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Validate Options
+	err = opt.ValidateOptions()
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
+
+	// Load env file if present
 	if *opt.EnvFilePath != "" {
 		err = godotenv.Load(*opt.EnvFilePath)
 		if err != nil {
@@ -74,20 +82,28 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Get Git provider base URL
+	gitProviderBaseURL := os.Getenv("GIT_PROVIDER_BASE_URL")
+	if gitProviderBaseURL == "" {
+		gitProviderBaseURL = "https://gitlab.myteksi.net"
+	}
+
 	// Initialize Git provider
-	err = gitProvider.Initialize(os.Getenv("GITLAB_BASE_URL"), os.Getenv("GITLAB_TOKEN"), nil)
+	err = gitProvider.Initialize(gitProviderBaseURL, os.Getenv("GITLAB_TOKEN"), nil)
 	if err != nil {
 		sess.Out.Fatal("%v", err)
 		os.Exit(1)
 	}
 
-	// Scan
 	if sess.Stats.Status == "finished" {
 		sess.Out.Important("Loaded session file: %s\n", *sess.Options.Load)
 		return
 	}
+
+	// Scan
 	scanner.Scan(sess, gitProvider)
 	sess.Out.Important("Gitlab Scanning Finished at %s\n", sess.Stats.FinishedAt.Format(time.RFC3339))
+
 	if *sess.Options.Save != "" {
 		err := sess.SaveToFile(*sess.Options.Save)
 		if err != nil {
@@ -95,5 +111,6 @@ func main() {
 		}
 		sess.Out.Important("Saved session to: %s\n\n", *sess.Options.Save)
 	}
+
 	sess.Stats.PrintStats(sess.Out)
 }

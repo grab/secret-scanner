@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"path"
 	"regexp"
 	"strings"
 	"time"
@@ -37,18 +38,35 @@ func TruncateString(str string, maxLength int) string {
 	return str
 }
 
-func GatherPaths(dir, branch string) ([]string, error) {
+func GatherPaths(dir, branch string, targets []string) ([]string, error) {
 	os.Chdir(dir)
 	gitcmd := "git"
 	listTree := "ls-tree"
 	op1 := "-r"
 	op2 := "--name-only"
-	out, err := exec.Command(gitcmd, listTree, op1, branch, op2).CombinedOutput()
-	if err != nil {
-		return nil, err
+	var paths []string
+
+	if len(targets) == 0 {
+		out, err := exec.Command(gitcmd, listTree, op1, branch, op2).CombinedOutput()
+		if err != nil {
+			return nil, err
+		}
+		cmdout := fmt.Sprintf("%s", string(out))
+		paths = append(paths, strings.Split(cmdout, "\n")...)
 	}
-	cmdout := fmt.Sprintf("%s", string(out))
-	paths := strings.Split(cmdout, "\n")
+
+	for _, t := range targets {
+		out, err := exec.Command(gitcmd, listTree, op1, fmt.Sprintf("%s:%s", branch, t), op2).CombinedOutput()
+		if err != nil {
+			return nil, err
+		}
+		cmdout := fmt.Sprintf("%s", string(out))
+		currentPaths := strings.Split(cmdout, "\n")
+		for i, p := range currentPaths {
+			currentPaths[i] = path.Join(t, p)
+		}
+		paths = append(paths, currentPaths...)
+	}
 	return paths, nil
 }
 

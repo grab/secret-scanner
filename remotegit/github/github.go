@@ -278,7 +278,7 @@ func AnalyzeRepositories(sess *GithubSession) {
 // It scans only the lastest revision. rather than scanning the entire commit history
 func ScanGithubRepoCurrentRevision(sess *GithubSession, repo *GithubRepository, dir string) {
 	sess.Out.Debug(" Fetching %s repository files.\n", *repo.FullName)
-	paths, err := scan.GatherPaths(dir, *repo.DefaultBranch)
+	paths, err := scan.GatherPaths(dir, *repo.DefaultBranch, []string{})
 	if err != nil {
 		sess.Out.Error("Error while fetching the file paths of %s repository: %s\n", dir, err)
 		return

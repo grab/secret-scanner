@@ -46,8 +46,9 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 					return
 				}
 
+				// Clone repo
 				sess.Out.Debug("[THREAD #%d][%s] Cloning repository...\n", tid, repo.FullName)
-				clone, dir, err := gitHandler.CloneRepository(&repo.CloneURL, &repo.DefaultBranch, *sess.Options.CommitDepth)
+				clone, cloneDir, err := gitHandler.CloneRepository(&repo.CloneURL, &repo.DefaultBranch, *sess.Options.CommitDepth)
 				if err != nil {
 					if err.Error() != "Remote repository is empty" {
 						sess.Out.Error("Error cloning repository %s: %s\n", repo.FullName, err)
@@ -56,25 +57,39 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 					sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
 					continue
 				}
-				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, repo.FullName, dir)
+				sess.Out.Debug("[THREAD #%d][%s] Cloned repository to: %s\n", tid, repo.FullName, cloneDir)
 
+				// Get checkpoint
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
 				checkpoint, err := scan.GetCheckpoint(strconv.Itoa(int(repo.ID)), sess.Store.Connection)
 				if err != nil {
 					sess.Out.Debug("DB Error: %s\n", err)
 				}
 
-				if checkpoint == "" {
-					//Scanning repo first time
-					scanCurrentGitRevision(sess, repo, dir)
-				} else {
-					scanGitCommits(sess, repo, clone, dir, checkpoint)
+				// Gather scan targets
+				targets := sess.Options.ParseScanTargets()
+				targetPaths, err := scan.GatherPaths(cloneDir, repo.DefaultBranch, targets)
+				if err != nil {
+					sess.Out.Error("Failed to gather target paths for repo: %v", repo.FullName)
+					return
 				}
-				scan.UpdateCheckpoint(dir, strconv.Itoa(int(repo.ID)), sess.Store.Connection)
 
+				targetPathMap := map[string]string{}
+				for _, tp := range targetPaths {
+					targetPathMap[path.Join(cloneDir, tp)] = tp
+				}
+
+				// Scan
+				scanRevisions(sess, repo, clone, checkpoint, cloneDir, targetPathMap)
+				err = scan.UpdateCheckpoint(cloneDir, strconv.Itoa(int(repo.ID)), sess.Store.Connection)
+				if err != nil {
+					fmt.Println(err)
+				}
+
+				// Cleanup
 				sess.Out.Debug("[THREAD #%d][%s] Done analyzing commits\n", tid, repo.FullName)
-				os.RemoveAll(dir)
-				sess.Out.Debug("[THREAD #%d][%s] Deleted %s\n", tid, repo.FullName, dir)
+				_ = os.RemoveAll(cloneDir)
+				sess.Out.Debug("[THREAD #%d][%s] Deleted %s\n", tid, repo.FullName, cloneDir)
 				sess.Stats.IncrementRepositories()
 				sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
 			}
@@ -119,23 +134,26 @@ func gatherRepositories(sess *session.Session, gitProvider gitprovider.GitProvid
 	sess.Out.Info(" Retrieved %d %s from GITLAB\n", len(repos), scan.Pluralize(len(repos), "repository", "repositories"))
 }
 
+func scanRevisions(sess *session.Session, repo *gitprovider.Repository, clone *git.Repository, checkpoint, cloneDir string, targetPathMap map[string]string) {
+	if checkpoint != "" {
+		scanGitCommits(sess, repo, clone, cloneDir, checkpoint, targetPathMap)
+	} else {
+		scanCurrentGitRevision(sess, repo, cloneDir, targetPathMap)
+	}
+}
+
 // scanCurrentGitRevision runs the file scan for complete gitlab repo.
 // It scans only the lastest revision. rather than scanning the entire commit history
-func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository, dir string) {
-	paths, err := scan.GatherPaths(dir, repo.DefaultBranch)
-	if err != nil {
-		sess.Out.Error("Error while fetching the file paths of %s repository: %s\n", dir, err)
-		return
-	}
+func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository, dir string, targetPathMap map[string]string) {
 	sess.Out.Debug("[THREAD][%s] Fetching repository files of: %s\n", repo.FullName, dir)
-	for _, p := range paths {
-		sess.Out.Debug("Path: %s\n", p)
-		content, err := ioutil.ReadFile(path.Join(dir, p))
+	for absPath, subPath := range targetPathMap {
+		sess.Out.Debug("Path: %s\n", absPath)
+		content, err := ioutil.ReadFile(absPath)
 		if err != nil {
-			sess.Out.Error("[FILE NOT FOUND]: %s/%s\n", dir, p)
+			sess.Out.Error("[FILE NOT FOUND]: %s\n", absPath)
 			continue
 		}
-		matchFile := signatures.NewMatchFile(p, string(content))
+		matchFile := signatures.NewMatchFile(subPath, string(content))
 		if matchFile.IsSkippable() {
 			sess.Out.Debug("[THREAD][%s] Skipping %s\n", repo.FullName, matchFile.Path)
 			continue
@@ -144,13 +162,13 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 		for _, signature := range signatures.Signatures {
 			if signature.Match(matchFile) {
 				finding := &signatures.Finding{
-					FilePath:       p,
+					FilePath:       subPath,
 					Action:         signature.Part(),
 					Description:    signature.Description(),
 					Comment:        signature.Comment(),
 					RepositoryName: repo.Name,
 					RepositoryUrl:  repo.URL,
-					FileUrl:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
+					FileUrl:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, subPath),
 				}
 				finding.Initialize()
 				sess.AddFinding(finding)
@@ -170,7 +188,7 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 
 // scanGitCommits run a scan to analyze the diffs present in the commit history
 // It will scan the commit history till the checkpoint (last scanned commit) is reached
-func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *git.Repository, dir, checkpoint string) {
+func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *git.Repository, dir, checkpoint string, targetPathMap map[string]string) {
 	history, err := gitHandler.GetRepositoryHistory(clone)
 	if err != nil {
 		sess.Out.Error("[THREAD][%s] Error getting commit history: %s\n", repo.FullName, err)
@@ -188,6 +206,12 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 		sess.Out.Debug("[THREAD][%s] Changes in %s: %d\n", repo.FullName, commit.Hash, len(changes))
 		for _, change := range changes {
 			p := gitHandler.GetChangePath(change)
+
+			_, exists := targetPathMap[path.Join(dir, p)]
+			if len(targetPathMap) > 0 && !exists {
+				continue
+			}
+
 			allContent := ""
 			sess.Out.Debug("FILE: %s/%s\n", dir, p)
 			sess.Out.Debug("Repo URL: %s/commit/%s\n", repo.URL, commit.Hash.String())
