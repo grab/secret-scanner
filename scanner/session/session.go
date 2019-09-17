@@ -4,11 +4,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/log"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/signatures"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/stats"
 	"io/ioutil"
 	"os"
@@ -109,7 +109,7 @@ func (s *Session) SaveToFile(location string) error {
 	return nil
 }
 
-func (s *Session) AddGitlabRepository(repository *gitprovider.Repository) {
+func (s *Session) AddRepository(repository *gitprovider.Repository) {
 	s.Lock()
 	defer s.Unlock()
 	for _, r := range s.Repositories {
@@ -127,12 +127,12 @@ func ValidateNewSession(session *Session) error {
 	//   return err
 	// }
 
-	if *session.Options.Save != "" && scan.FileExists(*session.Options.Save) {
+	if *session.Options.Save != "" && filehandler.FileExists(*session.Options.Save) {
 		return errors.New(fmt.Sprintf("File: %s already exists.", *session.Options.Save))
 	}
 
 	if *session.Options.Load != "" {
-		if !scan.FileExists(*session.Options.Load) {
+		if !filehandler.FileExists(*session.Options.Load) {
 			return errors.New(fmt.Sprintf("Session file %s does not exist or is not readable.", *session.Options.Load))
 		}
 		data, err := ioutil.ReadFile(*session.Options.Load)

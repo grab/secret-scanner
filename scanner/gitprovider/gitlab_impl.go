@@ -1,6 +1,7 @@
 package gitprovider
 
 import (
+	"errors"
 	"github.com/xanzy/go-gitlab"
 )
 
@@ -29,7 +30,11 @@ func (g *GitlabProvider) Initialize(baseURL, token string, additionalParams map[
 	return nil
 }
 
-func (g *GitlabProvider) GetRepository(id string) (*Repository, error) {
+func (g *GitlabProvider) GetRepository(opt map[string]string) (*Repository, error) {
+	id, exists := opt["id"]
+	if !exists {
+		return nil, errors.New("id option does not exists in map")
+	}
 	proj, _, err := g.Client.Projects.GetProject(id, nil)
 	if err != nil {
 		return nil, err
@@ -50,4 +55,8 @@ func (g *GitlabProvider) GetRepository(id string) (*Repository, error) {
 
 func (g *GitlabProvider) ValidateAdditionalParams(additionalParams map[string]string) bool {
 	return true
+}
+
+func (g *GitlabProvider) Name() string {
+	return "gitlab"
 }

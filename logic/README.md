@@ -1,1 +1,0 @@
-`logic` package TO BE DEPRECATED

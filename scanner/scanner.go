@@ -1,20 +1,25 @@
 package scanner
 
 import (
+	"errors"
 	"fmt"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
 	gitHandler "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/signatures"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/logic/scan"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
 	"gopkg.in/src-d/go-git.v4"
 	"io/ioutil"
 	"os"
 	"path"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
 )
+
+var NewlineRegex = regexp.MustCompile(`\r?\n`)
 
 func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 	if *sess.Options.GitScanPath != "" {
@@ -38,7 +43,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 	wg.Add(threadNum)
 	sess.Out.Debug("Threads for repository analysis: %d\n", threadNum)
 
-	sess.Out.Important("Analyzing %d %s...\n", len(sess.Repositories), scan.Pluralize(len(sess.Repositories), "repository", "repositories"))
+	sess.Out.Important("Analyzing %d %s...\n", len(sess.Repositories), Pluralize(len(sess.Repositories), "repository", "repositories"))
 
 	for i := 0; i < threadNum; i++ {
 		go func(tid int) {
@@ -66,14 +71,14 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 
 				// Get checkpoint
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
-				checkpoint, err := scan.GetCheckpoint(strconv.Itoa(int(repo.ID)), sess.Store.Connection)
+				checkpoint, err := db.GetCheckpoint(strconv.Itoa(int(repo.ID)), sess.Store.Connection)
 				if err != nil {
 					sess.Out.Debug("DB Error: %s\n", err)
 				}
 
 				// Gather scan targets
 				targets := sess.Options.ParseScanTargets()
-				targetPaths, err := scan.GatherPaths(cloneDir, repo.DefaultBranch, targets)
+				targetPaths, err := gitHandler.GatherPaths(cloneDir, repo.DefaultBranch, targets)
 				if err != nil {
 					sess.Out.Error("Failed to gather target paths for repo: %v", repo.FullName)
 					return
@@ -86,7 +91,12 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 
 				// Scan
 				scanRevisions(sess, repo, clone, checkpoint, cloneDir, targetPathMap)
-				err = scan.UpdateCheckpoint(cloneDir, strconv.Itoa(int(repo.ID)), sess.Store.Connection)
+				latestCommitHash, err := gitHandler.GetLatestCommitHash(cloneDir)
+				if err != nil {
+					sess.Out.Error("Failed to get latest commit hash")
+					return
+				}
+				err = db.UpdateCheckpoint(cloneDir, strconv.Itoa(int(repo.ID)), latestCommitHash, sess.Store.Connection)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -114,7 +124,7 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 	// Gather scan targets
 	targets := sess.Options.ParseScanTargets()
-	targetPaths, err := scan.GatherPaths(*sess.Options.GitScanPath, "master", targets)
+	targetPaths, err := gitHandler.GatherPaths(*sess.Options.GitScanPath, "master", targets)
 	if err != nil {
 		sess.Out.Error("Failed to gather target paths for repo: %v", *sess.Options.GitScanPath)
 		return
@@ -156,16 +166,28 @@ func gatherRepositories(sess *session.Session, gitProvider gitprovider.GitProvid
 
 	if *sess.Options.Repos != "" {
 		//Fetching the repos prodided in repo-list
-		if !scan.FileExists(*sess.Options.Repos) {
+		if !filehandler.FileExists(*sess.Options.Repos) {
 			sess.Out.Error(" No such file exists in: %s\n", *sess.Options.Repos)
 		}
 		data, err := ioutil.ReadFile(*sess.Options.Repos)
 		if err != nil {
-			sess.Out.Error(" Failed to load the repo list provided: %s\n", err)
+			sess.Out.Error("Failed to load the repo list provided: %s\n", err)
 		}
 		ids := strings.Split(string(data), ",")
 		for _, id := range ids {
-			r, err := gitProvider.GetRepository(id)
+			opt := map[string]string{}
+			if gitProvider.Name() == gitprovider.GithubName {
+				idParts := strings.Split(id, "/")
+				if len(idParts) != 2 {
+					sess.Out.Error("Wrong Github option format (owner/repo): %v\n", errors.New("wrong Github option format"))
+					continue
+				}
+				opt["owner"] = idParts[0]
+				opt["repo"] = idParts[1]
+			} else {
+				opt["id"] = id
+			}
+			r, err := gitProvider.GetRepository(opt)
 			if err != nil {
 				sess.Out.Error("Error fetching the repo with ID %s: %s\n", id, err)
 				continue
@@ -175,10 +197,10 @@ func gatherRepositories(sess *session.Session, gitProvider gitprovider.GitProvid
 	}
 	for _, repo := range repos {
 		sess.Out.Info(" Retrieved repository: %s\n", repo.FullName)
-		sess.AddGitlabRepository(repo)
+		sess.AddRepository(repo)
 	}
 	sess.Stats.IncrementTargets()
-	sess.Out.Info(" Retrieved %d %s from GITLAB\n", len(repos), scan.Pluralize(len(repos), "repository", "repositories"))
+	sess.Out.Info(" Retrieved %d %s from %s\n", len(repos), Pluralize(len(repos), "repository", "repositories"), *sess.Options.GitProvider)
 }
 
 func scanRevisions(sess *session.Session, repo *gitprovider.Repository, clone *git.Repository, checkpoint, cloneDir string, targetPathMap map[string]string) {
@@ -307,7 +329,7 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 						sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.ContentScan), finding.Description)
 						sess.Out.Info("  Path.......: %s\n", finding.FilePath)
 						sess.Out.Info("  Repo.......: %s\n", repo.FullName)
-						sess.Out.Info("  Message....: %s\n", scan.TruncateString(finding.CommitMessage, 100))
+						sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
 						sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 						sess.Out.Info("  Comment....: %s\n", finding.Comment)
 						sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
@@ -322,4 +344,20 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 		sess.Stats.IncrementCommits()
 		sess.Out.Debug("[THREAD][%s] Done analyzing changes in %s\n", repo.FullName, commit.Hash)
 	}
+}
+
+func Pluralize(count int, singular string, plural string) string {
+	if count == 1 {
+		return singular
+	}
+	return plural
+}
+
+func TruncateString(str string, maxLength int) string {
+	str = NewlineRegex.ReplaceAllString(str, " ")
+	str = strings.TrimSpace(str)
+	if len(str) > maxLength {
+		str = fmt.Sprintf("%s...", str[0:maxLength])
+	}
+	return str
 }

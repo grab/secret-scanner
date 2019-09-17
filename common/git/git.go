@@ -3,6 +3,10 @@ package git
 import (
 	"fmt"
 	"io/ioutil"
+	"os"
+	"os/exec"
+	"path"
+	"strings"
 
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
@@ -125,4 +129,51 @@ func GetPatch(change *object.Change) (*object.Patch, error) {
     return nil, err
   }
   return patch, err
+}
+
+// GetLatestCommitHash runs a git cmd to return latest commit hash
+func GetLatestCommitHash(dir string) (string, error) {
+	os.Chdir(dir)
+	gitcmd := "git"
+	task := "rev-parse"
+	op1 := "--verify"
+	op2 := "HEAD"
+	out, err := exec.Command(gitcmd, task, op1, op2).CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	commitHash := fmt.Sprintf("%s", string(out))
+	return commitHash, nil
+}
+
+func GatherPaths(dir, branch string, targets []string) ([]string, error) {
+	os.Chdir(dir)
+	gitcmd := "git"
+	listTree := "ls-tree"
+	op1 := "-r"
+	op2 := "--name-only"
+	var paths []string
+
+	if len(targets) == 0 {
+		out, err := exec.Command(gitcmd, listTree, op1, branch, op2).CombinedOutput()
+		if err != nil {
+			return nil, err
+		}
+		cmdout := fmt.Sprintf("%s", string(out))
+		paths = append(paths, strings.Split(cmdout, "\n")...)
+	}
+
+	for _, t := range targets {
+		out, err := exec.Command(gitcmd, listTree, op1, fmt.Sprintf("%s:%s", branch, t), op2).CombinedOutput()
+		if err != nil {
+			return nil, err
+		}
+		cmdout := fmt.Sprintf("%s", string(out))
+		currentPaths := strings.Split(cmdout, "\n")
+		for i, p := range currentPaths {
+			currentPaths[i] = path.Join(t, p)
+		}
+		paths = append(paths, currentPaths...)
+	}
+	return paths, nil
 }
