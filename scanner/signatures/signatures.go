@@ -1,4 +1,4 @@
-package core
+package signatures
 
 import (
 	"crypto/sha1"
