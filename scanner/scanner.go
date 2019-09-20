@@ -14,7 +14,6 @@ import (
 	"os"
 	"path"
 	"regexp"
-	"strconv"
 	"strings"
 	"sync"
 )
@@ -71,7 +70,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 
 				// Get checkpoint
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
-				checkpoint, err := db.GetCheckpoint(strconv.Itoa(int(repo.ID)), sess.Store.Connection)
+				checkpoint, err := db.GetCheckpoint(repo.ID, sess.Store.Connection)
 				if err != nil {
 					sess.Out.Debug("DB Error: %s\n", err)
 				}
@@ -96,7 +95,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 					sess.Out.Error("Failed to get latest commit hash")
 					return
 				}
-				err = db.UpdateCheckpoint(cloneDir, strconv.Itoa(int(repo.ID)), latestCommitHash, sess.Store.Connection)
+				err = db.UpdateCheckpoint(cloneDir, repo.ID, latestCommitHash, sess.Store.Connection)
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -144,7 +143,7 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 	repo := &gitprovider.Repository{
 		Owner:         "",
-		ID:            0,
+		ID:            "",
 		Name:          "",
 		FullName:      *sess.Options.GitScanPath,
 		CloneURL:      "",

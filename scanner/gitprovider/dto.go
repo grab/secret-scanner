@@ -2,7 +2,7 @@ package gitprovider
 
 type Repository struct {
 	Owner         string
-	ID            int64
+	ID            string
 	Name          string
 	FullName      string
 	CloneURL      string

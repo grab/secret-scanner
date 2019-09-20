@@ -5,6 +5,7 @@ import "errors"
 const (
 	GitlabName = "gitlab"
 	GithubName = "github"
+	BitbucketName = "bitbucket"
 )
 
 var (
