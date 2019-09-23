@@ -23,6 +23,7 @@ var NewlineRegex = regexp.MustCompile(`\r?\n`)
 func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 	if *sess.Options.GitScanPath != "" {
 		LocalGitScan(sess, gitProvider)
+		sess.End()
 		return
 	}
 
@@ -141,9 +142,11 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 		targetPathMap[path.Join(*sess.Options.GitScanPath, tp)] = tp
 	}
 
+	localID := fmt.Sprintf("%s/%s", strings.Trim(*sess.Options.GitScanPath, "/"), strings.Trim(*sess.Options.ScanTarget, "/"))
+
 	repo := &gitprovider.Repository{
 		Owner:         "",
-		ID:            "",
+		ID:            localID,
 		Name:          "",
 		FullName:      *sess.Options.GitScanPath,
 		CloneURL:      "",
@@ -152,12 +155,36 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 		Description:   "",
 		Homepage:      "",
 	}
+	
+	gitRepo, err := git.PlainOpen(*sess.Options.GitScanPath)
+	if err != nil {
+		sess.Out.Error("Failed to open directory as git repo: %v", *sess.Options.GitScanPath)
+		return
+	}
+
+	// Get checkpoint
+	checkpoint, err := db.GetCheckpoint(localID, sess.Store.Connection)
+	if err != nil {
+		sess.Out.Debug("DB Error: %s\n", err)
+	}
 
 	// Scan
-	scanCurrentGitRevision(sess, repo, *sess.Options.GitScanPath, targetPathMap)
+	scanRevisions(sess, repo, gitRepo, checkpoint, *sess.Options.GitScanPath, targetPathMap)
 
 	sess.Stats.IncrementRepositories()
 	sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
+
+	latestCommitHash, err := gitHandler.GetLatestCommitHash(*sess.Options.GitScanPath)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	err = db.UpdateCheckpoint(*sess.Options.GitScanPath, repo.ID, latestCommitHash, sess.Store.Connection)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	// NO cleanup for local scan
 }
 
 func gatherRepositories(sess *session.Session, gitProvider gitprovider.GitProvider) {

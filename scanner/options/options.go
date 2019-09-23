@@ -27,7 +27,7 @@ type Options struct {
 	//UserPW             *string
 	EnvFilePath        *string
 	RepoID             *string
-	ScanTargets        *string
+	ScanTarget         *string
 	Repos              *string
 	GitScanPath        *string
 }
@@ -99,7 +99,7 @@ func (o Options) ValidateHasToken(key string) bool {
 }
 
 func (o *Options) ParseScanTargets() []string {
-	return strings.Split(*o.ScanTargets, ",")
+	return strings.Split(*o.ScanTarget, ",")
 }
 
 func Parse() (Options, error) {
@@ -120,7 +120,7 @@ func Parse() (Options, error) {
 		//UserPW:             flag.String("user-pw", "", "Specify Bitbucket password"),
 		EnvFilePath:        flag.String("env", "", ".env file path containing VCS base URLs and tokens"),
 		RepoID:             flag.String("repo-id", "", "Scan the repository with this ID"),
-		ScanTargets:        flag.String("scan-targets", "", "Comma separated list of sub-directories within the repository to scan"),
+		ScanTarget:         flag.String("scan-target", "", "Sub-directory within the repository to scan"),
 		Repos:              flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
 		GitScanPath:        flag.String("git-scan-path", "", "Specify the local path to scan"),
 	}
