@@ -74,7 +74,10 @@ func NewOauthClient(OAuthKey, OAuthSecret, username, password string, client *ht
 		Config: oauth2.Config{
 			ClientID: OAuthKey,
 			ClientSecret: OAuthSecret,
-			Endpoint: bitbucket.Endpoint,
+			Endpoint: oauth2.Endpoint{
+				AuthURL:   bitbucket.Endpoint.AuthURL,
+				TokenURL:  bitbucket.Endpoint.TokenURL,
+			},
 		},
 		BaseURL: DefaultBaseURL,
 		Username: username,
