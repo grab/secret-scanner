@@ -24,12 +24,12 @@ func (g *BitbucketProvider) Initialize(baseURL, token string, additionalParams m
 }
 
 func (g *BitbucketProvider) GetRepository(opt map[string]string) (*Repository, error) {
-	username, exists := opt["username"]
+	username, exists := opt["owner"]
 	if !exists {
 		return nil, errors.New("username option must exist in map")
 	}
 
-	repoSlug, exists := opt["repoSlug"]
+	repoSlug, exists := opt["repo"]
 	if !exists {
 		return nil, errors.New("repoSlug option must exist in map")
 	}

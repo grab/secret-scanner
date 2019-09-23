@@ -175,7 +175,7 @@ func gatherRepositories(sess *session.Session, gitProvider gitprovider.GitProvid
 		ids := strings.Split(string(data), ",")
 		for _, id := range ids {
 			opt := map[string]string{}
-			if gitProvider.Name() == gitprovider.GithubName {
+			if gitProvider.Name() == gitprovider.GithubName || gitProvider.Name() == gitprovider.BitbucketName {
 				idParts := strings.Split(id, "/")
 				if len(idParts) != 2 {
 					sess.Out.Error("Wrong Github option format (owner/repo): %v\n", errors.New("wrong Github option format"))
