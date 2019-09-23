@@ -1,8 +1,8 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"github.com/joho/godotenv"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
@@ -21,57 +21,34 @@ func main() {
 	}
 
 	// Validate Options
-	err = opt.ValidateOptions()
+	optValid, err := opt.ValidateOptions()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
-
-	// Load env file if present
-	if *opt.EnvFilePath != "" {
-		err = godotenv.Load(*opt.EnvFilePath)
-		if err != nil {
-			fmt.Println(fmt.Sprintf("error: unable to load .env file path %s: %v", *opt.EnvFilePath, err))
-			os.Exit(1)
-		}
-	}
-
-	var gitProvider gitprovider.GitProvider
-	var gitProviderBaseURL string
-	var gitProviderToken string
-
-	// Set Git provider
-	switch *opt.GitProvider {
-	case "github":
-		gitProvider = &gitprovider.GithubProvider{}
-		gitProviderBaseURL = *opt.GitProviderBaseURL
-		if gitProviderBaseURL == "" {
-			gitProviderBaseURL = os.Getenv("GITHUB_BASE_URL")
-		}
-		gitProviderToken = *opt.GitProviderToken
-		if gitProviderToken == "" {
-			gitProviderToken = os.Getenv("GITHUB_TOKEN")
-		}
-
-	case "gitlab":
-		gitProvider = &gitprovider.GitlabProvider{}
-		gitProviderBaseURL = *opt.GitProviderBaseURL
-		if gitProviderBaseURL == "" {
-			gitProviderBaseURL = os.Getenv("GITLAB_BASE_URL")
-		}
-		gitProviderToken = *opt.GitProviderToken
-		if gitProviderToken == "" {
-			gitProviderToken = os.Getenv("GITLAB_TOKEN")
-		}
-
-	default:
-		fmt.Println("error: invalid Git provider type (Currently supports github, gitlab)")
+	if !optValid {
+		fmt.Println(errors.New("invalid option(s)"))
 		os.Exit(1)
 	}
 
-	if gitProviderBaseURL == "" || gitProviderToken == "" {
-		gitProviderUpper := strings.ToUpper(*opt.GitProvider)
-		fmt.Println(fmt.Sprintf("error: VCS base URL and token not set. To set: \"export %s_BASE_URL=http://base-url.com; %s_TOKEN=my-token\" or set them in .env file", gitProviderUpper, gitProviderUpper))
+	var gitProvider gitprovider.GitProvider
+	baseURL := ""
+	token := ""
+	additionalParams := map[string]string{}
+
+	// Set Git provider
+	switch *opt.GitProvider {
+	case gitprovider.GithubName:
+		gitProvider = &gitprovider.GithubProvider{}
+
+	case gitprovider.GitlabName:
+		gitProvider = &gitprovider.GitlabProvider{}
+
+	case gitprovider.BitbucketName:
+		gitProvider = &gitprovider.BitbucketProvider{}
+
+	default:
+		fmt.Println("error: invalid Git provider type (Currently supports github, gitlab)")
 		os.Exit(1)
 	}
 
@@ -82,7 +59,7 @@ func main() {
 	sess.Out.Important("Loaded %d signatures\n", len(signatures.Signatures))
 
 	// Initialize Git provider
-	err = gitProvider.Initialize(gitProviderBaseURL, gitProviderToken, nil)
+	err = gitProvider.Initialize(baseURL, token, additionalParams)
 	if err != nil {
 		sess.Out.Fatal("%v", err)
 		os.Exit(1)

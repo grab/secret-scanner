@@ -3,6 +3,7 @@ package gitprovider
 import (
 	"errors"
 	"github.com/xanzy/go-gitlab"
+	"strconv"
 )
 
 type GitlabProvider struct {
@@ -12,9 +13,6 @@ type GitlabProvider struct {
 }
 
 func (g *GitlabProvider) Initialize(baseURL, token string, additionalParams map[string]string) error {
-	if len(token) == 0 {
-		return ErrEmptyToken
-	}
 	if !g.ValidateAdditionalParams(additionalParams) {
 		return ErrInvalidAdditionalParams
 	}
@@ -39,8 +37,9 @@ func (g *GitlabProvider) GetRepository(opt map[string]string) (*Repository, erro
 	if err != nil {
 		return nil, err
 	}
+
 	repo := &Repository{
-		ID:            int64(proj.ID),
+		ID:            strconv.Itoa( proj.ID),
 		Name:          proj.Name,
 		FullName:      proj.Name,
 		CloneURL:      proj.SSHURLToRepo,
@@ -58,5 +57,5 @@ func (g *GitlabProvider) ValidateAdditionalParams(additionalParams map[string]st
 }
 
 func (g *GitlabProvider) Name() string {
-	return "gitlab"
+	return GitlabName
 }

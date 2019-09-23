@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"github.com/google/go-github/github"
-	"golang.org/x/oauth2"
+	//"golang.org/x/oauth2"
+	"strconv"
 )
 
 type GithubProvider struct {
@@ -14,20 +15,17 @@ type GithubProvider struct {
 }
 
 func (g *GithubProvider) Initialize(baseURL, token string, additionalParams map[string]string) error {
-	if len(token) == 0 {
-		return ErrEmptyToken
-	}
 	if !g.ValidateAdditionalParams(additionalParams) {
 		return ErrInvalidAdditionalParams
 	}
 
 	g.Token = token
 	g.AdditionalParams = additionalParams
-	ts := oauth2.StaticTokenSource(
-		&oauth2.Token{AccessToken: token},
-	)
-	tc := oauth2.NewClient(context.Background(), ts)
-	g.Client = github.NewClient(tc)
+	//ts := oauth2.StaticTokenSource(
+	//	&oauth2.Token{AccessToken: token},
+	//)
+	//tc := oauth2.NewClient(context.Background(), ts)
+	g.Client = github.NewClient(nil)
 
 	return nil
 }
@@ -49,7 +47,7 @@ func (g *GithubProvider) GetRepository(opt map[string]string) (*Repository, erro
 	}
 
 	return &Repository{
-		ID:            r.GetID(),
+		ID:            strconv.Itoa(int(r.GetID())),
 		Name:          r.GetName(),
 		FullName:      r.GetFullName(),
 		CloneURL:      r.GetCloneURL(),
@@ -66,5 +64,5 @@ func (g *GithubProvider) ValidateAdditionalParams(additionalParams map[string]st
 }
 
 func (g *GithubProvider) Name() string {
-	return "github"
+	return GithubName
 }
