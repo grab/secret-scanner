@@ -3,14 +3,17 @@ package main
 import (
 	"errors"
 	"fmt"
+	"os"
+	"strings"
+	"time"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/web"
+
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
-	"os"
-	"strings"
-	"time"
 )
 
 func main() {
@@ -32,8 +35,6 @@ func main() {
 	}
 
 	var gitProvider gitprovider.GitProvider
-	baseURL := ""
-	token := ""
 	additionalParams := map[string]string{}
 
 	// Set Git provider
@@ -59,7 +60,7 @@ func main() {
 	sess.Out.Important("Loaded %d signatures\n", len(signatures.Signatures))
 
 	// Initialize Git provider
-	err = gitProvider.Initialize(baseURL, token, additionalParams)
+	err = gitProvider.Initialize(*sess.Options.BaseURL, *sess.Options.Token, additionalParams)
 	if err != nil {
 		sess.Out.Fatal("%v", err)
 		os.Exit(1)
@@ -83,4 +84,9 @@ func main() {
 	}
 
 	sess.Stats.PrintStats(sess.Out)
+
+	// Serve UI
+	if *sess.Options.UI == true {
+		web.InitRouter("127.0.0.1", "8888", sess)
+	}
 }

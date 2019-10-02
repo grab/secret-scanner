@@ -3,33 +3,35 @@ package options
 import (
 	"flag"
 	"fmt"
-	"github.com/joho/godotenv"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"net/url"
 	"os"
 	"strings"
+
+	"github.com/joho/godotenv"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 )
 
 type Options struct {
-	CommitDepth        *int
-	Threads            *int
-	Save               *string `json:"-"`
-	Load               *string `json:"-"`
-	Silent             *bool
-	Debug              *bool
+	CommitDepth *int
+	Threads     *int
+	Save        *string `json:"-"`
+	Load        *string `json:"-"`
+	Silent      *bool
+	Debug       *bool
 
-	GitProvider        *string
-	BaseURL            *string
-	Token              *string
+	GitProvider *string
+	BaseURL     *string
+	Token       *string
 	//ClientID           *string
 	//ClientSecret       *string
 	//UserID             *string
 	//UserPW             *string
-	EnvFilePath        *string
-	RepoID             *string
-	ScanTarget         *string
-	Repos              *string
-	GitScanPath        *string
+	EnvFilePath *string
+	RepoID      *string
+	ScanTarget  *string
+	Repos       *string
+	GitScanPath *string
+	UI          *bool
 }
 
 func (o Options) ValidateOptions() (bool, error) {
@@ -104,25 +106,26 @@ func (o *Options) ParseScanTargets() []string {
 
 func Parse() (Options, error) {
 	options := Options{
-		CommitDepth:        flag.Int("commit-depth", 500, "Number of repository commits to process"),
-		Threads:            flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
-		Save:               flag.String("save", "", "Save session to file"),
-		Load:               flag.String("load", "", "Load session file"),
-		Silent:             flag.Bool("silent", false, "Suppress all output except for errors"),
-		Debug:              flag.Bool("debug", false, "Print debugging information"),
+		CommitDepth: flag.Int("commit-depth", 500, "Number of repository commits to process"),
+		Threads:     flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
+		Save:        flag.String("save", "", "Save session to file"),
+		Load:        flag.String("load", "", "Load session file"),
+		Silent:      flag.Bool("silent", false, "Suppress all output except for errors"),
+		Debug:       flag.Bool("debug", false, "Print debugging information"),
 
-		GitProvider:        flag.String("git", "", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
-		BaseURL:            flag.String("baseurl", "", "Specify VCS base URL"),
-		Token:              flag.String("token", "", "Specify VCS token"),
+		GitProvider: flag.String("git", "", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
+		BaseURL:     flag.String("baseurl", "", "Specify Git provider base URL"),
+		Token:       flag.String("token", "", "Specify Git provider token"),
 		//ClientID:           flag.String("oauth-id", "", "Specify Bitbucket Oauth2 client ID"),
 		//ClientSecret:       flag.String("oauth-secret", "", "Specify Bitbucket Oauth2 client secret"),
 		//UserID:             flag.String("user-id", "", "Specify Bitbucket username"),
 		//UserPW:             flag.String("user-pw", "", "Specify Bitbucket password"),
-		EnvFilePath:        flag.String("env", "", ".env file path containing VCS base URLs and tokens"),
-		RepoID:             flag.String("repo-id", "", "Scan the repository with this ID"),
-		ScanTarget:         flag.String("scan-target", "", "Sub-directory within the repository to scan"),
-		Repos:              flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
-		GitScanPath:        flag.String("git-scan-path", "", "Specify the local path to scan"),
+		EnvFilePath: flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
+		RepoID:      flag.String("repo-id", "", "Scan the repository with this ID"),
+		ScanTarget:  flag.String("scan-target", "", "Sub-directory within the repository to scan"),
+		Repos:       flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
+		GitScanPath: flag.String("git-scan-path", "", "Specify the local path to scan"),
+		UI:          flag.Bool("ui", true, "Serves up local UI for scan results if true, defaults to true"),
 	}
 
 	flag.Parse()
