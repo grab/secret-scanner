@@ -4,13 +4,13 @@ Secret scanner is a command-line tool to scan Git repositories for any sensitive
 
 It does so by looking at file names, extensions, and content, attempting to match them against a list of signatures.
 
-The too is loosely based on <a href="https://github.com/michenriksen/gitrob">Gitrob</a>, with added support for Gitlab on top of Github.
+The tool is loosely based on <a href="https://github.com/michenriksen/gitrob">Gitrob</a>, with added support for Gitlab and Bitbucket on top of Github.
 
 For more information: https://wiki.grab.com/display/IS/Code+secrets+scanner
 
 ## Setup
 
-The use of this tool requires you to set VCS (Github / Gitlab / Bitbucket) API base URL and tokens in your environment.
+The use of this tool requires you to set various Git provider (Github / Gitlab / Bitbucket) options such as API base URL and tokens in your environment.
 
 You can do so by:
 ```
@@ -22,22 +22,69 @@ Alternatively, you can add them into your `.bash_profile` or create a `.env` fil
 You can also provide them as tool flag options. See **Usage** section
 
 The precedence of usage is as follows from highest to lowest:
-1. Flag options
+1. Command flag options
 2. .env file
 3. CLI exported
 4. Values from .bash_profile
 
 ## Usage
 
-Basic:
+### Basic
+
 ```
-secret-scanner -vcs github -env .env -repo-list repo.csv
+./secret-scanner -git github -env .env -repo-list repo.csv
+./secret-scanner -git bitbucket -env .env -repo-list repo.csv
+./secret-scanner -git gitlab -baseurl https://mygitlab.com -token mysecret-token -repo-list repo.csv
 ```
 
-CLI Args:
+### Local Scan
+
+By default, the tool will attempt to make a local clone before scanning the files.
+
+If you already have a copy of the files on local disk, you can do a local scan by specifying the `git-scan-path` parameter.
+
+```
+./secret-scanner -git github -git-scan-path /path/to/local/repository
+```
+
+### Sub-directory Scan
+
+In instances where a repository contains multiple projects (i.e monorepo), you can specify which project to scan by providing `git-scan-path`, the project directory path name relative to repository root.
+
+Example:
+https://github.com/user/awesome-projects contains
+- project1/
+- project2/
+- project3/
+
+To scan `project1`:
+```
+./secret-scanner -git github -env .env -repo-list repo.csv -git-scan-path project1
+```
+
+## Report
+
+By default, findings found during the scan will be printed as console output. You can save it as JSON by specifying the `save` param
+
+```
+./secret-scanner -git github -env .env -repo-list repo.csv -save ./report.json
+```
+
+### Web UI
+
+By default, the after the scan is completed, a local web server will be spun up containing the findings in a nice UI.
+
+You can turn it off by specifying `ui` to false.
+
+```
+./secret-scanner -git github -env .env -repo-list repo.csv -save ./report.json -ui false
+```
+
+## CLI Args
+
 ```
 -baseurl string
-    Specify VCS base URL
+     Specify Git provider base URL
 
 -commit-depth int
     Number of repository commits to process (default 500)
@@ -46,7 +93,10 @@ CLI Args:
     Print debugging information
 
 -env string
-    .env file path containing VCS base URLs and tokens
+    .env file path containing Git provider base URLs and tokens
+
+-git string
+    Specify type of git provider (Eg. github, gitlab, bitbucket)
 
 -git-scan-path string
     Specify the local path to scan
@@ -63,8 +113,8 @@ CLI Args:
 -save string
     Save session to file
 
--scan-targets string
-    Comma separated list of sub-directories within the repository to scan
+-scan-target string
+    Sub-directory within the repository to scan
 
 -silent
     Suppress all output except for errors
@@ -75,6 +125,6 @@ CLI Args:
 -token string
     Specify VCS token
 
--vcs string
-    Specify version control system to scan (Eg. github, gitlab, bitbucket)
+-ui
+    Serves up local UI for scan results if true, (default true)
 ```
