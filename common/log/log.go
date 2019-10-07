@@ -9,14 +9,21 @@ import (
 )
 
 const (
-	FATAL     = 5
-	ERROR     = 4
-	WARN      = 3
+	// FATAL ...
+	FATAL = 5
+	// ERROR ...
+	ERROR = 4
+	// WARN ...
+	WARN = 3
+	// IMPORTANT ...
 	IMPORTANT = 2
-	INFO      = 1
-	DEBUG     = 0
+	// INFO ...
+	INFO = 1
+	// DEBUG ...
+	DEBUG = 0
 )
 
+// LogColors defines message output colors
 var LogColors = map[int]*color.Color{
 	FATAL:     color.New(color.FgRed).Add(color.Bold),
 	ERROR:     color.New(color.FgRed),
@@ -25,6 +32,7 @@ var LogColors = map[int]*color.Color{
 	DEBUG:     color.New(color.FgCyan).Add(color.Faint),
 }
 
+// Logger ...
 type Logger struct {
 	sync.Mutex
 
@@ -32,14 +40,17 @@ type Logger struct {
 	silent bool
 }
 
+// SetSilent sets logger silent option
 func (l *Logger) SetSilent(s bool) {
 	l.silent = s
 }
 
+// SetDebug sets logger debug option
 func (l *Logger) SetDebug(d bool) {
 	l.debug = d
 }
 
+// Log logs a message
 func (l *Logger) Log(level int, format string, args ...interface{}) {
 	l.Lock()
 	defer l.Unlock()
@@ -60,26 +71,32 @@ func (l *Logger) Log(level int, format string, args ...interface{}) {
 	}
 }
 
+// Fatal ...
 func (l *Logger) Fatal(format string, args ...interface{}) {
 	l.Log(FATAL, format, args...)
 }
 
+// Error ...
 func (l *Logger) Error(format string, args ...interface{}) {
 	l.Log(ERROR, format, args...)
 }
 
+// Warn ...
 func (l *Logger) Warn(format string, args ...interface{}) {
 	l.Log(WARN, format, args...)
 }
 
+// Important ...
 func (l *Logger) Important(format string, args ...interface{}) {
 	l.Log(IMPORTANT, format, args...)
 }
 
+// Info ...
 func (l *Logger) Info(format string, args ...interface{}) {
 	l.Log(INFO, format, args...)
 }
 
+// Debug ...
 func (l *Logger) Debug(format string, args ...interface{}) {
 	l.Log(DEBUG, format, args...)
 }

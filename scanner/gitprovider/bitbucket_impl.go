@@ -2,14 +2,15 @@ package gitprovider
 
 import (
 	"errors"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/external/remotegit/bitbucket"
 	"net/http"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/external/remotegit/bitbucket"
 )
 
 type BitbucketProvider struct {
-	Client *bitbucket.Bitbucket
+	Client           *bitbucket.Bitbucket
 	AdditionalParams map[string]string
-	Token string
+	Token            string
 }
 
 func (g *BitbucketProvider) Initialize(baseURL, token string, additionalParams map[string]string) error {
@@ -40,15 +41,15 @@ func (g *BitbucketProvider) GetRepository(opt map[string]string) (*Repository, e
 	}
 
 	return &Repository{
-		Owner: repo.Owner.Username,
-		ID: repo.UUID,
-		Name: repo.Name,
-		FullName: repo.FullName,
-		CloneURL: repo.Links.Clone[0].Href,
-		URL: repo.Links.Self.Href,
+		Owner:         repo.Owner.Username,
+		ID:            repo.UUID,
+		Name:          repo.Name,
+		FullName:      repo.FullName,
+		CloneURL:      repo.Links.Clone[0].Href,
+		URL:           repo.Links.Self.Href,
 		DefaultBranch: repo.MainBranch.Name,
-		Description: repo.Description,
-		Homepage: repo.Links.Html.Href,
+		Description:   repo.Description,
+		Homepage:      repo.Links.HTML.Href,
 	}, nil
 }
 
