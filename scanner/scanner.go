@@ -3,6 +3,15 @@ package scanner
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"regexp"
+	"strings"
+	"sync"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
+
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
 	gitHandler "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
@@ -10,17 +19,11 @@ import (
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
 	"gopkg.in/src-d/go-git.v4"
-	"io/ioutil"
-	"os"
-	"path"
-	"regexp"
-	"strings"
-	"sync"
 )
 
 var NewlineRegex = regexp.MustCompile(`\r?\n`)
 
-func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
+func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	if *sess.Options.GitScanPath != "" {
 		LocalGitScan(sess, gitProvider)
 		sess.End()
@@ -155,7 +158,7 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 		Description:   "",
 		Homepage:      "",
 	}
-	
+
 	gitRepo, err := git.PlainOpen(*sess.Options.GitScanPath)
 	if err != nil {
 		sess.Out.Error("Failed to open directory as git repo: %v", *sess.Options.GitScanPath)
@@ -254,9 +257,9 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 			continue
 		}
 		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
-		for _, signature := range signatures.Signatures {
+		for _, signature := range sess.Signatures {
 			if signature.Match(matchFile) {
-				finding := &signatures.Finding{
+				finding := &findings.Finding{
 					FilePath:       subPath,
 					Action:         signature.Part(),
 					Description:    signature.Description(),
@@ -327,7 +330,7 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 				continue
 			}
 			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
-			for _, signature := range signatures.Signatures {
+			for _, signature := range sess.Signatures {
 				if signature.Match(matchFile) {
 					latestContent, err := ioutil.ReadFile(path.Join(dir, p))
 					if err != nil {
@@ -336,7 +339,7 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 					}
 					matchFile = signatures.NewMatchFile(p, string(latestContent))
 					if signature.Match(matchFile) {
-						finding := &signatures.Finding{
+						finding := &findings.Finding{
 							FilePath:       p,
 							Action:         session.ContentScan,
 							Description:    signature.Description(),

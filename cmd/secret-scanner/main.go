@@ -13,7 +13,6 @@ import (
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
 )
 
 func main() {
@@ -57,7 +56,7 @@ func main() {
 	sess := &session.Session{}
 	sess.Initialize(opt)
 	sess.Out.Important("%s Scanning Started at %s\n", strings.Title(*opt.GitProvider), sess.Stats.StartedAt.Format(time.RFC3339))
-	sess.Out.Important("Loaded %d signatures\n", len(signatures.Signatures))
+	sess.Out.Important("Loaded %d signatures\n", len(sess.Signatures))
 
 	// Initialize Git provider
 	err = gitProvider.Initialize(*sess.Options.BaseURL, *sess.Options.Token, additionalParams)

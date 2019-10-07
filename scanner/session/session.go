@@ -4,17 +4,20 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"runtime"
+	"sync"
+	"time"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
+
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/log"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/stats"
-	"io/ioutil"
-	"os"
-	"runtime"
-	"sync"
-	"time"
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
 )
@@ -25,9 +28,10 @@ type Session struct {
 	Options      options.Options `json:"-"`
 	Out          *log.Logger     `json:"-"`
 	Stats        *stats.Stats
-	Findings     []*signatures.Finding
+	Findings     []*findings.Finding
 	Store        *db.MysqlHandler
 	Repositories []*gitprovider.Repository
+	Signatures   []signatures.Signature
 }
 
 func (s *Session) Initialize(options options.Options) {
@@ -36,6 +40,7 @@ func (s *Session) Initialize(options options.Options) {
 	s.InitDB()
 	s.InitStats()
 	s.InitThreads()
+	s.Signatures = signatures.LoadSignatures()
 }
 
 func (s *Session) End() {
@@ -91,7 +96,7 @@ func (s *Session) InitThreads() {
 	runtime.GOMAXPROCS(*s.Options.Threads + 2) // thread count + main + web server
 }
 
-func (s *Session) AddFinding(finding *signatures.Finding) {
+func (s *Session) AddFinding(finding *findings.Finding) {
 	s.Lock()
 	defer s.Unlock()
 	s.Findings = append(s.Findings, finding)
