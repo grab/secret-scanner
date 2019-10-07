@@ -4,7 +4,11 @@ go 1.12
 
 require (
 	github.com/Masterminds/squirrel v1.1.0
+	github.com/elazarl/go-bindata-assetfs v1.0.0
 	github.com/fatih/color v1.7.0
+	github.com/gin-contrib/secure v0.0.0-20190913150500-0a1d39a681e3
+	github.com/gin-contrib/static v0.0.0-20190913125243-df30d4057ba1
+	github.com/gin-gonic/gin v1.4.0
 	github.com/go-sql-driver/mysql v1.4.1
 	github.com/google/go-github v17.0.0+incompatible
 	github.com/joho/godotenv v1.3.0

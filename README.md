@@ -49,17 +49,17 @@ If you already have a copy of the files on local disk, you can do a local scan b
 
 ### Sub-directory Scan
 
-In instances where a repository contains multiple projects (i.e monorepo), you can specify which project to scan by providing `git-scan-path`, the project directory path name relative to repository root.
+In instances where a repository contains multiple projects (i.e monorepo), you can specify which project to scan by providing `scan-target`, the project directory path name relative to repository root.
 
 Example:
 https://github.com/user/awesome-projects contains
-- project1/
-- project2/
-- project3/
+- dir1/
+- dir2/
+- dir3/
 
-To scan `project1`:
+To scan `dir1`:
 ```
-./secret-scanner -git github -env .env -repo-list repo.csv -git-scan-path project1
+./secret-scanner -git github -env .env -repo-list repo.csv -git-scan-path /path/to/awesome-projects -scan-target dir1
 ```
 
 ## Report

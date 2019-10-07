@@ -86,7 +86,7 @@ func main() {
 	sess.Stats.PrintStats(sess.Out)
 
 	// Serve UI
-	if *sess.Options.UI == true {
+	if *sess.Options.UI == "true" {
 		web.InitRouter("127.0.0.1", "8888", sess)
 	}
 }
