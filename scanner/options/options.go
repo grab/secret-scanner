@@ -108,8 +108,8 @@ func (o *Options) ValidateHasToken(key string) bool {
 		if os.Getenv(key) == "" {
 			return false
 		}
-		token := os.Getenv(key)
-		o.Token = &token
+		//token := os.Getenv(key)
+		*o.Token = os.Getenv(key)
 	}
 	return true
 }
