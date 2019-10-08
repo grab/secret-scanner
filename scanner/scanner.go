@@ -21,8 +21,10 @@ import (
 	"gopkg.in/src-d/go-git.v4"
 )
 
+// NewlineRegex ...
 var NewlineRegex = regexp.MustCompile(`\r?\n`)
 
+// Scan starts the scanning process
 func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	if *sess.Options.GitScanPath != "" {
 		LocalGitScan(sess, gitProvider)
@@ -122,6 +124,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	sess.End()
 }
 
+// LocalGitScan starts a scan on local directory without first cloning from git provider
 func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	sess.Stats.Status = session.StatusAnalyzing
 
@@ -389,6 +392,7 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 	}
 }
 
+// Pluralize makes word plural
 func Pluralize(count int, singular string, plural string) string {
 	if count == 1 {
 		return singular
@@ -396,6 +400,7 @@ func Pluralize(count int, singular string, plural string) string {
 	return plural
 }
 
+// TruncateString truncates string from whitespace pre/suf-fix
 func TruncateString(str string, maxLength int) string {
 	str = NewlineRegex.ReplaceAllString(str, " ")
 	str = strings.TrimSpace(str)

@@ -1,5 +1,6 @@
 package signatures
 
+// SimpleSignature ...
 type SimpleSignature struct {
 	part        string
 	match       string
@@ -7,6 +8,7 @@ type SimpleSignature struct {
 	comment     string
 }
 
+// Match checks if given file matches with signature
 func (s SimpleSignature) Match(file MatchFile) bool {
 	var haystack *string
 	switch s.part {
@@ -25,18 +27,22 @@ func (s SimpleSignature) Match(file MatchFile) bool {
 	return (s.match == *haystack)
 }
 
+// Description returns signature description
 func (s SimpleSignature) Description() string {
 	return s.description
 }
 
+// Comment returns signature comment
 func (s SimpleSignature) Comment() string {
 	return s.comment
 }
 
+// Part returns signature part type
 func (s SimpleSignature) Part() string {
 	return s.part
 }
 
+// SimpleSignatures contains simple signatures
 var SimpleSignatures = []Signature{
 	// Extensions
 	SimpleSignature{

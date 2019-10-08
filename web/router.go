@@ -13,16 +13,24 @@ import (
 )
 
 const (
-	GithubBaseUri   = "https://raw.githubusercontent.com"
+	// GithubBaseURL ...
+	GithubBaseURL = "https://raw.githubusercontent.com"
+
+	// MaximumFileSize ...
 	MaximumFileSize = 102400
-	CspPolicy       = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'"
-	ReferrerPolicy  = "no-referrer"
+
+	// CspPolicy ...
+	CspPolicy = "default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'"
+
+	// ReferrerPolicy ...
+	ReferrerPolicy = "no-referrer"
 )
 
 type binaryFileSystem struct {
 	fs http.FileSystem
 }
 
+// NewRouter creates new router
 func NewRouter(s *session.Session) *gin.Engine {
 	if *s.Options.Debug == true {
 		gin.SetMode(gin.DebugMode)
@@ -58,6 +66,7 @@ func NewRouter(s *session.Session) *gin.Engine {
 	return router
 }
 
+// BinaryFileSystem ...
 func BinaryFileSystem(root string) *binaryFileSystem {
 	fs := &assetfs.AssetFS{Asset: Asset, AssetDir: AssetDir, AssetInfo: AssetInfo, Prefix: root}
 	return &binaryFileSystem{

@@ -1,13 +1,23 @@
 package signatures
 
 const (
-	TypeSimple  = "simple"
+	// TypeSimple ...
+	TypeSimple = "simple"
+
+	// TypePattern ...
 	TypePattern = "pattern"
 
+	// PartExtension ...
 	PartExtension = "extension"
-	PartFilename  = "filename"
-	PartPath      = "path"
-	PartContent   = "content"
+
+	// PartFilename ...
+	PartFilename = "filename"
+
+	// PartPath ...
+	PartPath = "path"
+
+	// PartContent ...
+	PartContent = "content"
 )
 
 var skippableExtensions = []string{".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".tif", ".psd", ".xcf"}

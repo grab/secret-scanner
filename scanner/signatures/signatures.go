@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Signature defines fields for a secret signature
 type Signature interface {
 	Match(file MatchFile) bool
 	Description() string
@@ -12,6 +13,7 @@ type Signature interface {
 	Part() string
 }
 
+// MatchFile contains details of a matching file
 type MatchFile struct {
 	Path      string
 	Filename  string
@@ -19,6 +21,7 @@ type MatchFile struct {
 	Content   string
 }
 
+// IsSkippable determines if a given matched file can be ignored
 func (f *MatchFile) IsSkippable() bool {
 	ext := strings.ToLower(f.Extension)
 	path := strings.ToLower(f.Path)
@@ -35,6 +38,7 @@ func (f *MatchFile) IsSkippable() bool {
 	return false
 }
 
+// NewMatchFile creates new MatchFile
 func NewMatchFile(path string, content string) MatchFile {
 	_, filename := filepath.Split(path)
 	extension := filepath.Ext(path)
@@ -47,6 +51,7 @@ func NewMatchFile(path string, content string) MatchFile {
 	}
 }
 
+// LoadSignatures loads all signatures
 func LoadSignatures() []Signature {
 	sig := SimpleSignatures
 	return append(sig, PatternSignatures...)

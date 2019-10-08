@@ -2,6 +2,7 @@ package signatures
 
 import "regexp"
 
+// PatternSignature ...
 type PatternSignature struct {
 	part        string
 	match       *regexp.Regexp
@@ -9,6 +10,7 @@ type PatternSignature struct {
 	comment     string
 }
 
+// Match checks if given file matches with signature
 func (s PatternSignature) Match(file MatchFile) bool {
 	var haystack *string
 	switch s.part {
@@ -27,18 +29,22 @@ func (s PatternSignature) Match(file MatchFile) bool {
 	return s.match.MatchString(*haystack)
 }
 
+// Description returns signature description
 func (s PatternSignature) Description() string {
 	return s.description
 }
 
+// Comment returns signature comment
 func (s PatternSignature) Comment() string {
 	return s.comment
 }
 
+// Part returns signature part type
 func (s PatternSignature) Part() string {
 	return s.part
 }
 
+// PatternSignatures contains simple signatures
 var PatternSignatures = []Signature{
 	PatternSignature{
 		part:        PartFilename,
