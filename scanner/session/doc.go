@@ -1,10 +1,21 @@
 package session
 
 const (
+	// StatusInitializing ...
 	StatusInitializing = "initializing"
-	StatusGathering    = "gathering"
-	StatusAnalyzing    = "analyzing"
-	StatusFinished     = "finished"
-	ContentScan        = "Content Scan"
-	PathScan           = "Path Scan"
+
+	// StatusGathering ...
+	StatusGathering = "gathering"
+
+	// StatusAnalyzing ...
+	StatusAnalyzing = "analyzing"
+
+	// StatusFinished ...
+	StatusFinished = "finished"
+
+	// ContentScan ...
+	ContentScan = "Content Scan"
+
+	// PathScan ...
+	PathScan = "Path Scan"
 )

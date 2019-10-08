@@ -11,6 +11,7 @@ import (
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 )
 
+// Options ...
 type Options struct {
 	CommitDepth *int
 	Threads     *int
@@ -34,6 +35,7 @@ type Options struct {
 	UI          *string
 }
 
+// ValidateOptions validates given options
 func (o Options) ValidateOptions() (bool, error) {
 	if *o.RepoID != "" && *o.Repos != "" {
 		return false, ErrRepoOptionConflict
@@ -69,11 +71,19 @@ func (o Options) ValidateOptions() (bool, error) {
 	}
 }
 
+// ValidateGithubOptions validates Github options,
+// applied when GitProvider == github
 func (o Options) ValidateGithubOptions() bool {
 	return true
 }
 
+// ValidateGitlabOptions validates Gitlab options
+// applied when GitProvider == gitlab
 func (o Options) ValidateGitlabOptions() bool {
+	if o.BaseURL == nil {
+		return false
+	}
+
 	baseURL := *o.BaseURL
 	if baseURL == "" {
 		baseURL = os.Getenv("GITLAB_BASE_URL")
@@ -86,24 +96,34 @@ func (o Options) ValidateGitlabOptions() bool {
 	return o.ValidateHasToken("GITLAB_TOKEN")
 }
 
+// ValidateBitbucketOptions validates Bitbucket options
+// applied when GitProvider == bitbucket
 func (o Options) ValidateBitbucketOptions() bool {
 	return true
 }
 
-func (o Options) ValidateHasToken(key string) bool {
+// ValidateHasToken validates that token is not empty
+func (o *Options) ValidateHasToken(key string) bool {
 	if *o.Token == "" {
 		if os.Getenv(key) == "" {
 			return false
 		}
+		//token := os.Getenv(key)
 		*o.Token = os.Getenv(key)
 	}
 	return true
 }
 
-func (o *Options) ParseScanTargets() []string {
-	return strings.Split(*o.ScanTarget, ",")
+// ParseScanTargets splits string of targets by comma
+func (o Options) ParseScanTargets() []string {
+	targets := strings.Split(*o.ScanTarget, ",")
+	for i, t := range targets {
+		targets[i] = strings.Trim(t, " ")
+	}
+	return targets
 }
 
+// Parse parses cmd params
 func Parse() (Options, error) {
 	options := Options{
 		CommitDepth: flag.Int("commit-depth", 500, "Number of repository commits to process"),

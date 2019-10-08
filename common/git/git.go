@@ -15,9 +15,11 @@ import (
 )
 
 const (
-	EmptyTreeCommitId = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
+	// EmptyTreeCommitID is a hash representing empty tree
+	EmptyTreeCommitID = "4b825dc642cb6eb9a060e54bf8d69288fbee4904"
 )
 
+// CloneRepository clones a repository from a remote source to local temp. dir.
 func CloneRepository(url *string, branch *string, depth int) (*git.Repository, string, error) {
 	urlVal := *url
 	branchVal := *branch
@@ -38,6 +40,7 @@ func CloneRepository(url *string, branch *string, depth int) (*git.Repository, s
 	return repository, dir, nil
 }
 
+// GetRepositoryHistory gets commit history of a git repo.
 func GetRepositoryHistory(repository *git.Repository) ([]*object.Commit, error) {
 	var commits []*object.Commit
 	ref, err := repository.Head()
@@ -55,6 +58,7 @@ func GetRepositoryHistory(repository *git.Repository) ([]*object.Commit, error) 
 	return commits, nil
 }
 
+// GetChanges gets the changes since a commit till current HEAD
 func GetChanges(commit *object.Commit, repo *git.Repository) (object.Changes, error) {
 	parentCommit, err := GetParentCommit(commit, repo)
 	if err != nil {
@@ -78,9 +82,10 @@ func GetChanges(commit *object.Commit, repo *git.Repository) (object.Changes, er
 	return changes, nil
 }
 
+// GetParentCommit gets parent commit
 func GetParentCommit(commit *object.Commit, repo *git.Repository) (*object.Commit, error) {
 	if commit.NumParents() == 0 {
-		parentCommit, err := repo.CommitObject(plumbing.NewHash(EmptyTreeCommitId))
+		parentCommit, err := repo.CommitObject(plumbing.NewHash(EmptyTreeCommitID))
 		if err != nil {
 			return nil, err
 		}
@@ -93,6 +98,7 @@ func GetParentCommit(commit *object.Commit, repo *git.Repository) (*object.Commi
 	return parentCommit, nil
 }
 
+// GetChangeAction gets change action
 func GetChangeAction(change *object.Change) string {
 	action, err := change.Action()
 	if err != nil {
@@ -110,6 +116,7 @@ func GetChangeAction(change *object.Change) string {
 	}
 }
 
+// GetChangePath gets change path
 func GetChangePath(change *object.Change) string {
 	action, err := change.Action()
 	if err != nil {
@@ -118,17 +125,18 @@ func GetChangePath(change *object.Change) string {
 
 	if action == merkletrie.Delete {
 		return change.From.Name
-	} else {
-		return change.To.Name
 	}
+
+	return change.To.Name
 }
 
+// GetPatch gets patch
 func GetPatch(change *object.Change) (*object.Patch, error) {
-  patch, err := change.Patch()
-  if err != nil {
-    return nil, err
-  }
-  return patch, err
+	patch, err := change.Patch()
+	if err != nil {
+		return nil, err
+	}
+	return patch, err
 }
 
 // GetLatestCommitHash runs a git cmd to return latest commit hash
@@ -146,6 +154,7 @@ func GetLatestCommitHash(dir string) (string, error) {
 	return commitHash, nil
 }
 
+// GatherPaths gets all committed file paths
 func GatherPaths(dir, branch string, targets []string) ([]string, error) {
 	os.Chdir(dir)
 	gitcmd := "git"

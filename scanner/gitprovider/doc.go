@@ -3,12 +3,15 @@ package gitprovider
 import "errors"
 
 const (
+	// GitlabName ...
 	GitlabName = "gitlab"
+	// GithubName ...
 	GithubName = "github"
+	// BitbucketName ...
 	BitbucketName = "bitbucket"
 )
 
 var (
-	ErrEmptyToken = errors.New("token must not be empty")
+	// ErrInvalidAdditionalParams ...
 	ErrInvalidAdditionalParams = errors.New("invalid additional params")
 )

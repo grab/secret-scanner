@@ -6,6 +6,7 @@ import (
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 )
 
+// InitRouter ...
 func InitRouter(address, port string, sess *session.Session) {
 	bind := fmt.Sprintf("%s:%s", address, port)
 	r := NewRouter(sess)

@@ -3,29 +3,33 @@ package bitbucket
 import (
 	"encoding/json"
 	"fmt"
-	"golang.org/x/oauth2"
-	"golang.org/x/oauth2/bitbucket"
 	"io/ioutil"
 	"net/http"
 	"net/url"
 	"path"
 	"strings"
 	"time"
+
+	"golang.org/x/oauth2"
+	"golang.org/x/oauth2/bitbucket"
 )
 
-type OAuthConfig struct {
+// OAuth2Config contains OAuth2 configs for Bitbucket
+type OAuth2Config struct {
 	oauth2.Config
-	BaseURL string
+	BaseURL  string
 	Username string
 	Password string
 }
 
+// Bitbucket service client
 type Bitbucket struct {
 	Client *http.Client
-	config *OAuthConfig
-	token *oauth2.Token
+	config *OAuth2Config
+	token  *oauth2.Token
 }
 
+// UserRepository fetches a user's repository
 func (bb *Bitbucket) UserRepository(userSlug, repoSlug string, client *http.Client) (*Repository, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", bb.config.BaseURL, path.Join("repositories", userSlug, repoSlug)), nil)
 	if err != nil {
@@ -57,29 +61,45 @@ func (bb *Bitbucket) UserRepository(userSlug, repoSlug string, client *http.Clie
 	return repo, nil
 }
 
-func NewClient(client *http.Client) (*Bitbucket, error) {
+// NewClient generates a new Bitbucket service client
+func NewClient(baseURL string, client *http.Client) (*Bitbucket, error) {
+	apiURL := baseURL
+	if apiURL == "" {
+		apiURL = DefaultBaseURL
+	}
 	return &Bitbucket{
 		Client: client,
-		config: &OAuthConfig{
-			BaseURL: DefaultBaseURL,
+		config: &OAuth2Config{
+			BaseURL:  apiURL,
 			Username: "",
 			Password: "",
 		},
-		token:  nil,
+		token: nil,
 	}, nil
 }
 
-func NewOauthClient(OAuthKey, OAuthSecret, username, password string, client *http.Client) (*Bitbucket, error) {
-	config := &OAuthConfig{
+// NewOauth2Client generates a new Bitbucket service client with OAuth2 cred.
+func NewOauth2Client(OAuthKey, OAuthSecret, username, password string, client *http.Client, endpoint *oauth2.Endpoint) (*Bitbucket, error) {
+	oauth2Endpoint := oauth2.Endpoint{
+		AuthURL:  bitbucket.Endpoint.AuthURL,
+		TokenURL: bitbucket.Endpoint.TokenURL,
+	}
+	if endpoint != nil {
+		if oauth2Endpoint.TokenURL != "" {
+			oauth2Endpoint.TokenURL = endpoint.TokenURL
+		}
+		if oauth2Endpoint.AuthURL != "" {
+			oauth2Endpoint.AuthURL = endpoint.AuthURL
+		}
+	}
+
+	config := &OAuth2Config{
 		Config: oauth2.Config{
-			ClientID: OAuthKey,
+			ClientID:     OAuthKey,
 			ClientSecret: OAuthSecret,
-			Endpoint: oauth2.Endpoint{
-				AuthURL:   bitbucket.Endpoint.AuthURL,
-				TokenURL:  bitbucket.Endpoint.TokenURL,
-			},
+			Endpoint:     oauth2Endpoint,
 		},
-		BaseURL: DefaultBaseURL,
+		BaseURL:  DefaultBaseURL,
 		Username: username,
 		Password: password,
 	}
@@ -90,15 +110,15 @@ func NewOauthClient(OAuthKey, OAuthSecret, username, password string, client *ht
 	}
 
 	bb := &Bitbucket{
-		Client:  client,
-		config:  config,
-		token:   token,
+		Client: client,
+		config: config,
+		token:  token,
 	}
 
 	return bb, nil
 }
 
-func newToken(client *http.Client, config *OAuthConfig) (*oauth2.Token, error) {
+func newToken(client *http.Client, config *OAuth2Config) (*oauth2.Token, error) {
 	form := url.Values{}
 	form.Set("grant_type", "password")
 	form.Set("username", config.Username)
@@ -134,9 +154,9 @@ func newToken(client *http.Client, config *OAuthConfig) (*oauth2.Token, error) {
 	expiry := time.Now().UTC().Add(time.Duration(expiryInNanoSec))
 
 	return &oauth2.Token{
-		AccessToken: tokenDTO.AccessToken,
-		TokenType: tokenDTO.TokenType,
+		AccessToken:  tokenDTO.AccessToken,
+		TokenType:    tokenDTO.TokenType,
 		RefreshToken: tokenDTO.RefreshToken,
-		Expiry: expiry,
+		Expiry:       expiry,
 	}, nil
 }

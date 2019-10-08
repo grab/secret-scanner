@@ -3,6 +3,15 @@ package scanner
 import (
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"regexp"
+	"strings"
+	"sync"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
+
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
 	gitHandler "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
@@ -10,17 +19,13 @@ import (
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
 	"gopkg.in/src-d/go-git.v4"
-	"io/ioutil"
-	"os"
-	"path"
-	"regexp"
-	"strings"
-	"sync"
 )
 
+// NewlineRegex ...
 var NewlineRegex = regexp.MustCompile(`\r?\n`)
 
-func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
+// Scan starts the scanning process
+func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	if *sess.Options.GitScanPath != "" {
 		LocalGitScan(sess, gitProvider)
 		sess.End()
@@ -119,6 +124,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider)  {
 	sess.End()
 }
 
+// LocalGitScan starts a scan on local directory without first cloning from git provider
 func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	sess.Stats.Status = session.StatusAnalyzing
 
@@ -155,7 +161,7 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 		Description:   "",
 		Homepage:      "",
 	}
-	
+
 	gitRepo, err := git.PlainOpen(*sess.Options.GitScanPath)
 	if err != nil {
 		sess.Out.Error("Failed to open directory as git repo: %v", *sess.Options.GitScanPath)
@@ -254,18 +260,25 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 			continue
 		}
 		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
-		for _, signature := range signatures.Signatures {
+		for _, signature := range sess.Signatures {
 			if signature.Match(matchFile) {
-				finding := &signatures.Finding{
+				finding := &findings.Finding{
 					FilePath:       subPath,
 					Action:         signature.Part(),
 					Description:    signature.Description(),
 					Comment:        signature.Comment(),
 					RepositoryName: repo.Name,
-					RepositoryUrl:  repo.URL,
-					FileUrl:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, subPath),
+					RepositoryURL:  repo.URL,
+					FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, subPath),
 				}
-				finding.Initialize()
+
+				hashID, err := finding.GenerateHashID()
+				if err != nil {
+					sess.Out.Error("Unable to generate hash ID for %v, skipping...", finding.FileURL)
+					continue
+				}
+				finding.ID = hashID
+
 				sess.AddFinding(finding)
 
 				sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.PathScan), finding.Description)
@@ -273,7 +286,7 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 				sess.Out.Info("  Repo.......: %s\n", repo.FullName)
 				sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 				sess.Out.Info("  Comment....: %s\n", finding.Comment)
-				sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
+				sess.Out.Info("  File URL...: %s\n", finding.FileURL)
 				sess.Out.Info(" ------------------------------------------------\n\n")
 				sess.Stats.IncrementFindings()
 			}
@@ -327,7 +340,7 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 				continue
 			}
 			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
-			for _, signature := range signatures.Signatures {
+			for _, signature := range sess.Signatures {
 				if signature.Match(matchFile) {
 					latestContent, err := ioutil.ReadFile(path.Join(dir, p))
 					if err != nil {
@@ -336,7 +349,7 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 					}
 					matchFile = signatures.NewMatchFile(p, string(latestContent))
 					if signature.Match(matchFile) {
-						finding := &signatures.Finding{
+						finding := &findings.Finding{
 							FilePath:       p,
 							Action:         session.ContentScan,
 							Description:    signature.Description(),
@@ -345,11 +358,18 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 							CommitHash:     commit.Hash.String(),
 							CommitMessage:  strings.TrimSpace(commit.Message),
 							CommitAuthor:   commit.Author.String(),
-							RepositoryUrl:  repo.URL,
-							FileUrl:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
-							CommitUrl:      fmt.Sprintf("%s/commit/%s", repo.URL, commit.Hash.String()),
+							RepositoryURL:  repo.URL,
+							FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
+							CommitURL:      fmt.Sprintf("%s/commit/%s", repo.URL, commit.Hash.String()),
 						}
-						finding.Initialize()
+
+						hashID, err := finding.GenerateHashID()
+						if err != nil {
+							sess.Out.Error("Unable to generate hash ID for %v, skipping...", finding.FileURL)
+							continue
+						}
+						finding.ID = hashID
+
 						sess.AddFinding(finding)
 
 						sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.ContentScan), finding.Description)
@@ -358,8 +378,8 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 						sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
 						sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 						sess.Out.Info("  Comment....: %s\n", finding.Comment)
-						sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
-						sess.Out.Info("  Commit URL.: %s\n", finding.CommitUrl)
+						sess.Out.Info("  File URL...: %s\n", finding.FileURL)
+						sess.Out.Info("  Commit URL.: %s\n", finding.CommitURL)
 						sess.Out.Info(" ------------------------------------------------\n\n")
 						sess.Stats.IncrementFindings()
 					}
@@ -372,6 +392,7 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 	}
 }
 
+// Pluralize makes word plural
 func Pluralize(count int, singular string, plural string) string {
 	if count == 1 {
 		return singular
@@ -379,6 +400,7 @@ func Pluralize(count int, singular string, plural string) string {
 	return plural
 }
 
+// TruncateString truncates string from whitespace pre/suf-fix
 func TruncateString(str string, maxLength int) string {
 	str = NewlineRegex.ReplaceAllString(str, " ")
 	str = strings.TrimSpace(str)
