@@ -2,22 +2,25 @@ package gitprovider
 
 import (
 	"errors"
-	"github.com/xanzy/go-gitlab"
 	"strconv"
+
+	"github.com/xanzy/go-gitlab"
 )
 
+// GitlabProvider holds Gitlab client fields
 type GitlabProvider struct {
-	Client *gitlab.Client
+	Client           *gitlab.Client
 	AdditionalParams map[string]string
-	token string
+	Token            string
 }
 
+// Initialize creates and assigns new client
 func (g *GitlabProvider) Initialize(baseURL, token string, additionalParams map[string]string) error {
 	if !g.ValidateAdditionalParams(additionalParams) {
 		return ErrInvalidAdditionalParams
 	}
 
-	g.token = token
+	g.Token = token
 	g.AdditionalParams = additionalParams
 	g.Client = gitlab.NewClient(nil, token)
 	err := g.Client.SetBaseURL(baseURL)
@@ -28,6 +31,7 @@ func (g *GitlabProvider) Initialize(baseURL, token string, additionalParams map[
 	return nil
 }
 
+// GetRepository gets repo info
 func (g *GitlabProvider) GetRepository(opt map[string]string) (*Repository, error) {
 	id, exists := opt["id"]
 	if !exists {
@@ -39,7 +43,7 @@ func (g *GitlabProvider) GetRepository(opt map[string]string) (*Repository, erro
 	}
 
 	repo := &Repository{
-		ID:            strconv.Itoa( proj.ID),
+		ID:            strconv.Itoa(proj.ID),
 		Name:          proj.Name,
 		FullName:      proj.Name,
 		CloneURL:      proj.SSHURLToRepo,
@@ -52,10 +56,12 @@ func (g *GitlabProvider) GetRepository(opt map[string]string) (*Repository, erro
 	return repo, nil
 }
 
+// ValidateAdditionalParams validates additional params
 func (g *GitlabProvider) ValidateAdditionalParams(additionalParams map[string]string) bool {
 	return true
 }
 
+// Name returns the provider name
 func (g *GitlabProvider) Name() string {
 	return GitlabName
 }

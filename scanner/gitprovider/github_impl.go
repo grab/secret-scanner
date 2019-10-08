@@ -3,17 +3,22 @@ package gitprovider
 import (
 	"context"
 	"errors"
+	"net/url"
+
 	"github.com/google/go-github/github"
+
 	//"golang.org/x/oauth2"
 	"strconv"
 )
 
+// GithubProvider holds Github client fields
 type GithubProvider struct {
-	Client *github.Client
+	Client           *github.Client
 	AdditionalParams map[string]string
-	Token string
+	Token            string
 }
 
+// Initialize creates and assigns new client
 func (g *GithubProvider) Initialize(baseURL, token string, additionalParams map[string]string) error {
 	if !g.ValidateAdditionalParams(additionalParams) {
 		return ErrInvalidAdditionalParams
@@ -27,9 +32,16 @@ func (g *GithubProvider) Initialize(baseURL, token string, additionalParams map[
 	//tc := oauth2.NewClient(context.Background(), ts)
 	g.Client = github.NewClient(nil)
 
+	// change client's base URL if needed
+	if baseURL != "" {
+		apiURL, _ := url.Parse(baseURL)
+		g.Client.BaseURL = apiURL
+	}
+
 	return nil
 }
 
+// GetRepository gets repo info
 func (g *GithubProvider) GetRepository(opt map[string]string) (*Repository, error) {
 	owner, exists := opt["owner"]
 	if !exists {
@@ -59,10 +71,12 @@ func (g *GithubProvider) GetRepository(opt map[string]string) (*Repository, erro
 	}, nil
 }
 
+// ValidateAdditionalParams validates additional params
 func (g *GithubProvider) ValidateAdditionalParams(additionalParams map[string]string) bool {
 	return true
 }
 
+// Name returns the provider name
 func (g *GithubProvider) Name() string {
 	return GithubName
 }

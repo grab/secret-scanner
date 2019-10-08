@@ -10,7 +10,7 @@ import (
 )
 
 func TestNewClient(t *testing.T) {
-	client, err := NewClient(http.DefaultClient)
+	client, err := NewClient("", http.DefaultClient)
 	if err != nil {
 		t.Errorf("Unable to create new client: %v", err)
 		return

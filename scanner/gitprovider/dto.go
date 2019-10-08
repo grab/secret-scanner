@@ -1,5 +1,6 @@
 package gitprovider
 
+// Repository is a universal struct for holding repo info fields
 type Repository struct {
 	Owner         string
 	ID            string

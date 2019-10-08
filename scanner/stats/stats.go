@@ -1,11 +1,13 @@
 package stats
 
 import (
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/log"
 	"sync"
 	"time"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/log"
 )
 
+// Stats holds info about the scan status
 type Stats struct {
 	sync.Mutex
 
@@ -20,36 +22,42 @@ type Stats struct {
 	Findings     int
 }
 
+// IncrementTargets increase the target count by 1
 func (s *Stats) IncrementTargets() {
 	s.Lock()
 	defer s.Unlock()
 	s.Targets++
 }
 
+// IncrementRepositories increase the repo count by 1
 func (s *Stats) IncrementRepositories() {
 	s.Lock()
 	defer s.Unlock()
 	s.Repositories++
 }
 
+// IncrementCommits increase commit count by 1
 func (s *Stats) IncrementCommits() {
 	s.Lock()
 	defer s.Unlock()
 	s.Commits++
 }
 
+// IncrementFiles increase file count by 1
 func (s *Stats) IncrementFiles() {
 	s.Lock()
 	defer s.Unlock()
 	s.Files++
 }
 
+// IncrementFindings increase finding count by 1
 func (s *Stats) IncrementFindings() {
 	s.Lock()
 	defer s.Unlock()
 	s.Findings++
 }
 
+// UpdateProgress updates the progress percentage
 func (s *Stats) UpdateProgress(current int, total int) {
 	s.Lock()
 	defer s.Unlock()
@@ -60,6 +68,7 @@ func (s *Stats) UpdateProgress(current int, total int) {
 	}
 }
 
+// PrintStats prints the stat info
 func (s *Stats) PrintStats(logger *log.Logger) {
 	logger.Info("\nFindings....: %d\n", s.Findings)
 	logger.Info("Files.......: %d\n", s.Files)

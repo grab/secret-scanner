@@ -62,11 +62,15 @@ func (bb *Bitbucket) UserRepository(userSlug, repoSlug string, client *http.Clie
 }
 
 // NewClient generates a new Bitbucket service client
-func NewClient(client *http.Client) (*Bitbucket, error) {
+func NewClient(baseURL string, client *http.Client) (*Bitbucket, error) {
+	apiURL := baseURL
+	if apiURL == "" {
+		apiURL = DefaultBaseURL
+	}
 	return &Bitbucket{
 		Client: client,
 		config: &OAuth2Config{
-			BaseURL:  DefaultBaseURL,
+			BaseURL:  apiURL,
 			Username: "",
 			Password: "",
 		},

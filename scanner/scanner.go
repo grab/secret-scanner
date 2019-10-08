@@ -265,10 +265,17 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 					Description:    signature.Description(),
 					Comment:        signature.Comment(),
 					RepositoryName: repo.Name,
-					RepositoryUrl:  repo.URL,
-					FileUrl:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, subPath),
+					RepositoryURL:  repo.URL,
+					FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, subPath),
 				}
-				finding.Initialize()
+
+				hashID, err := finding.GenerateHashID()
+				if err != nil {
+					sess.Out.Error("Unable to generate hash ID for %v, skipping...", finding.FileURL)
+					continue
+				}
+				finding.ID = hashID
+
 				sess.AddFinding(finding)
 
 				sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.PathScan), finding.Description)
@@ -276,7 +283,7 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 				sess.Out.Info("  Repo.......: %s\n", repo.FullName)
 				sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 				sess.Out.Info("  Comment....: %s\n", finding.Comment)
-				sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
+				sess.Out.Info("  File URL...: %s\n", finding.FileURL)
 				sess.Out.Info(" ------------------------------------------------\n\n")
 				sess.Stats.IncrementFindings()
 			}
@@ -348,11 +355,18 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 							CommitHash:     commit.Hash.String(),
 							CommitMessage:  strings.TrimSpace(commit.Message),
 							CommitAuthor:   commit.Author.String(),
-							RepositoryUrl:  repo.URL,
-							FileUrl:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
-							CommitUrl:      fmt.Sprintf("%s/commit/%s", repo.URL, commit.Hash.String()),
+							RepositoryURL:  repo.URL,
+							FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
+							CommitURL:      fmt.Sprintf("%s/commit/%s", repo.URL, commit.Hash.String()),
 						}
-						finding.Initialize()
+
+						hashID, err := finding.GenerateHashID()
+						if err != nil {
+							sess.Out.Error("Unable to generate hash ID for %v, skipping...", finding.FileURL)
+							continue
+						}
+						finding.ID = hashID
+
 						sess.AddFinding(finding)
 
 						sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.ContentScan), finding.Description)
@@ -361,8 +375,8 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 						sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
 						sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
 						sess.Out.Info("  Comment....: %s\n", finding.Comment)
-						sess.Out.Info("  File URL...: %s\n", finding.FileUrl)
-						sess.Out.Info("  Commit URL.: %s\n", finding.CommitUrl)
+						sess.Out.Info("  File URL...: %s\n", finding.FileURL)
+						sess.Out.Info("  Commit URL.: %s\n", finding.CommitURL)
 						sess.Out.Info(" ------------------------------------------------\n\n")
 						sess.Stats.IncrementFindings()
 					}

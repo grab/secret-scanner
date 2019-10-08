@@ -7,14 +7,16 @@ import (
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/external/remotegit/bitbucket"
 )
 
+// BitbucketProvider holds Bitbucket client fields
 type BitbucketProvider struct {
 	Client           *bitbucket.Bitbucket
 	AdditionalParams map[string]string
 	Token            string
 }
 
+// Initialize creates and assigns new client
 func (g *BitbucketProvider) Initialize(baseURL, token string, additionalParams map[string]string) error {
-	bb, err := bitbucket.NewClient(http.DefaultClient)
+	bb, err := bitbucket.NewClient(baseURL, http.DefaultClient)
 	if err != nil {
 		return err
 	}
@@ -24,6 +26,7 @@ func (g *BitbucketProvider) Initialize(baseURL, token string, additionalParams m
 	return nil
 }
 
+// GetRepository gets repo info
 func (g *BitbucketProvider) GetRepository(opt map[string]string) (*Repository, error) {
 	username, exists := opt["owner"]
 	if !exists {
@@ -53,10 +56,12 @@ func (g *BitbucketProvider) GetRepository(opt map[string]string) (*Repository, e
 	}, nil
 }
 
+// ValidateAdditionalParams validates additional params
 func (g *BitbucketProvider) ValidateAdditionalParams(additionalParams map[string]string) bool {
 	return true
 }
 
+// Name returns the provider name
 func (g *BitbucketProvider) Name() string {
 	return BitbucketName
 }
