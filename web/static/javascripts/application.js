@@ -35,6 +35,13 @@ var Stats = Backbone.Model.extend({
 window.stats = new Stats;
 
 var Finding = Backbone.Model.extend({
+  defaults: {
+    "Id": "",
+    "CommitUrl": "",
+    "CommitHash": "",
+    "FileUrl": "",
+    "RepositoryUrl": ""
+  },
   idAttribute: "Id",
   testFileIndicators: ["test", "_spec", "fixture", "mock", "stub", "fake", "demo", "sample"],
   shortCommitHash: function() {
