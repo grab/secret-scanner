@@ -259,6 +259,11 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 			sess.Out.Debug("[THREAD][%s] Skipping %s\n", repo.FullName, matchFile.Path)
 			continue
 		}
+		isTestContext := matchFile.IsTestContext()
+		if isTestContext && *sess.Options.SkipTestContexts {
+			sess.Out.Debug("[THREAD][%s] Skipping %s\n", repo.FullName, matchFile.Path)
+			continue
+		}
 		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
 		for _, signature := range sess.Signatures {
 			if signature.Match(matchFile) {
@@ -270,6 +275,7 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 					RepositoryName: repo.Name,
 					RepositoryURL:  repo.URL,
 					FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, subPath),
+					IsTestContext:  isTestContext,
 				}
 
 				hashID, err := finding.GenerateHashID()
@@ -339,6 +345,11 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 				sess.Out.Debug("[THREAD][%s] Skipping %s\n", repo.FullName, matchFile.Path)
 				continue
 			}
+			isTestContext := matchFile.IsTestContext()
+			if isTestContext && *sess.Options.SkipTestContexts {
+				sess.Out.Debug("[THREAD][%s] Skipping %s\n", repo.FullName, matchFile.Path)
+				continue
+			}
 			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
 			for _, signature := range sess.Signatures {
 				if signature.Match(matchFile) {
@@ -361,6 +372,7 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 							RepositoryURL:  repo.URL,
 							FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
 							CommitURL:      fmt.Sprintf("%s/commit/%s", repo.URL, commit.Hash.String()),
+							IsTestContext:  isTestContext,
 						}
 
 						hashID, err := finding.GenerateHashID()

@@ -13,12 +13,13 @@ import (
 
 // Options ...
 type Options struct {
-	CommitDepth *int
-	Threads     *int
-	Save        *string `json:"-"`
-	Load        *string `json:"-"`
-	Silent      *bool
-	Debug       *bool
+	CommitDepth      *int
+	Threads          *int
+	Save             *string `json:"-"`
+	Load             *string `json:"-"`
+	Silent           *bool
+	Debug            *bool
+	SkipTestContexts *bool
 
 	GitProvider *string
 	BaseURL     *string
@@ -126,12 +127,13 @@ func (o Options) ParseScanTargets() []string {
 // Parse parses cmd params
 func Parse() (Options, error) {
 	options := Options{
-		CommitDepth: flag.Int("commit-depth", 500, "Number of repository commits to process"),
-		Threads:     flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
-		Save:        flag.String("save", "", "Save session to file"),
-		Load:        flag.String("load", "", "Load session file"),
-		Silent:      flag.Bool("silent", false, "Suppress all output except for errors"),
-		Debug:       flag.Bool("debug", false, "Print debugging information"),
+		CommitDepth:      flag.Int("commit-depth", 500, "Number of repository commits to process"),
+		Threads:          flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
+		Save:             flag.String("save", "", "Save session to file"),
+		Load:             flag.String("load", "", "Load session file"),
+		Silent:           flag.Bool("silent", false, "Suppress all output except for errors"),
+		Debug:            flag.Bool("debug", false, "Print debugging information"),
+		SkipTestContexts: flag.Bool("skip-tests", false, "Skips possible test contexts"),
 
 		GitProvider: flag.String("git", "", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
 		BaseURL:     flag.String("baseurl", "", "Specify Git provider base URL"),
@@ -145,7 +147,7 @@ func Parse() (Options, error) {
 		ScanTarget:  flag.String("scan-target", "", "Sub-directory within the repository to scan"),
 		Repos:       flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
 		GitScanPath: flag.String("git-scan-path", "", "Specify the local path to scan"),
-		UI:          flag.String("ui", "true", "Serves up local UI for scan results if true, defaults to true"),
+		UI:          flag.String("ui", "false", "Serves up local UI for scan results if true, defaults to true"),
 	}
 
 	flag.Parse()

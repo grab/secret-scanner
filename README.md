@@ -119,6 +119,9 @@ You can turn it off by specifying `ui` to false.
 -silent
     Suppress all output except for errors
 
+-skip-tests
+     Skips possible test contexts
+
 -threads int
     Number of concurrent threads (default number of logical CPUs)
 

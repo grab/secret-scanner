@@ -38,6 +38,18 @@ func (f *MatchFile) IsSkippable() bool {
 	return false
 }
 
+func (f *MatchFile) IsTestContext() bool {
+	path := strings.ToLower(f.Path)
+
+	for _, skippableTestContext := range skippableTestContexts {
+		if strings.Contains(path, skippableTestContext) {
+			return true
+		}
+	}
+
+	return false
+}
+
 // NewMatchFile creates new MatchFile
 func NewMatchFile(path string, content string) MatchFile {
 	_, filename := filepath.Split(path)
