@@ -21,7 +21,7 @@ var defaultOptions = Options{
 	ScanTarget:  flag.String("scan-target", "", "Sub-directory within the repository to scan"),
 	Repos:       flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
 	GitScanPath: flag.String("git-scan-path", "", "Specify the local path to scan"),
-	UI:          flag.String("ui", "true", "Serves up local UI for scan results if true, defaults to true"),
+	UI:          flag.Bool("ui", true, "Serves up local UI for scan results if true, defaults to true"),
 }
 
 func TestOptions_ValidateOptions(t *testing.T) {

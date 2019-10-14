@@ -21,6 +21,7 @@ type Finding struct {
 	FileURL         string
 	CommitURL       string
 	RepositoryURL   string
+	IsTestContext   bool
 }
 
 // GenerateHashID generates an unique hash

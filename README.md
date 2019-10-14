@@ -29,6 +29,8 @@ The precedence of usage is as follows from highest to lowest:
 
 ## Usage
 
+For `bool` cmd-line flags, use `=` between key-val pair. Eg `-ui=false`
+
 ### Basic
 
 ```
@@ -89,7 +91,7 @@ You can turn it off by specifying `ui` to false.
 -commit-depth int
     Number of repository commits to process (default 500)
 
--debug
+-debug bool
     Print debugging information
 
 -env string
@@ -116,8 +118,11 @@ You can turn it off by specifying `ui` to false.
 -scan-target string
     Sub-directory within the repository to scan
 
--silent
+-silent bool
     Suppress all output except for errors
+
+-skip-tests bool
+     Skips possible test contexts
 
 -threads int
     Number of concurrent threads (default number of logical CPUs)
@@ -125,6 +130,6 @@ You can turn it off by specifying `ui` to false.
 -token string
     Specify VCS token
 
--ui
+-ui bool
     Serves up local UI for scan results if true, (default true)
 ```
