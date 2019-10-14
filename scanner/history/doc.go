@@ -1,8 +1,9 @@
 package history
 
-type ScanHistory struct {
-	GitProvider string `json:"git_provider"`
-	RepoID      string `json:"repo_id"`
-	CommitHash  string `json:"commit_hash"`
-	CreatedAt   string `json:"created_at"`
-}
+const (
+	// DefaultStoreDir is the default directory name for storing scan histories file
+	DefaultStoreDir = ".secretscanner"
+
+	// DefaultStoreFile is the default scan histories file name
+	DefaultStoreFile = "scan-histories.json"
+)

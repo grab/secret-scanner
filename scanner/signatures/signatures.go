@@ -38,6 +38,7 @@ func (f *MatchFile) IsSkippable() bool {
 	return false
 }
 
+// IsTestContext checks if file is in a test context
 func (f *MatchFile) IsTestContext() bool {
 	path := strings.ToLower(f.Path)
 

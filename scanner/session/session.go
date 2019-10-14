@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"runtime"
 	"sync"
 	"time"
@@ -36,22 +37,38 @@ type Session struct {
 // Initialize inits a scan session
 func (s *Session) Initialize(options options.Options) {
 	s.Options = options
+	s.InitHistoryStoreOrFail(*options.HistoryStoreFilePath)
 	s.InitLogger()
 	s.InitStats()
 	s.InitThreads()
 	s.Signatures = signatures.LoadSignatures()
-
-	//s.HistoryStore = &
-	//err := .Initialize("../../test.json")
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
 }
 
 // End end a scan session
 func (s *Session) End() {
 	s.Stats.FinishedAt = time.Now()
 	s.Stats.Status = StatusFinished
+	s.HistoryStore.Close()
+}
+
+// InitHistoryStoreOrFail inits a history storage
+func (s *Session) InitHistoryStoreOrFail(filepath string) {
+	s.HistoryStore = &history.JSONFileStore{}
+
+	if filepath == "" {
+		defaultPath, err := s.HistoryStore.GetDefaultStorePath()
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Unable to create default history file path: %v", err))
+			os.Exit(1)
+		}
+		filepath = defaultPath
+	}
+
+	err := s.HistoryStore.Initialize(filepath)
+	if err != nil {
+		fmt.Println(fmt.Sprintf("Unable to initialize HistoryStore: %v", err))
+		os.Exit(1)
+	}
 }
 
 // InitLogger inits a logger

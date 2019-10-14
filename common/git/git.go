@@ -150,7 +150,7 @@ func GetLatestCommitHash(dir string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	commitHash := fmt.Sprintf("%s", string(out))
+	commitHash := fmt.Sprintf("%s", strings.TrimSpace(string(out)))
 	return commitHash, nil
 }
 
@@ -168,7 +168,7 @@ func GatherPaths(dir, branch string, targets []string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		cmdout := fmt.Sprintf("%s", string(out))
+		cmdout := fmt.Sprintf("%s", strings.TrimSpace(string(out)))
 		paths = append(paths, strings.Split(cmdout, "\n")...)
 	}
 
@@ -177,7 +177,7 @@ func GatherPaths(dir, branch string, targets []string) ([]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		cmdout := fmt.Sprintf("%s", string(out))
+		cmdout := fmt.Sprintf("%s", strings.TrimSpace(string(out)))
 		currentPaths := strings.Split(cmdout, "\n")
 		for i, p := range currentPaths {
 			currentPaths[i] = path.Join(t, p)

@@ -9,6 +9,9 @@ import (
 	"regexp"
 	"strings"
 	"sync"
+	"time"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/history"
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
 
@@ -76,6 +79,10 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 				// Get checkpoint
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
 				checkpoint := ""
+				latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
+				if latestHistory != nil {
+					checkpoint = latestHistory.CommitHash
+				}
 
 				// Gather scan targets
 				targets := sess.Options.ParseScanTargets()
@@ -92,14 +99,14 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 				// Scan
 				scanRevisions(sess, repo, clone, checkpoint, cloneDir, targetPathMap)
-				//latestCommitHash, err := gitHandler.GetLatestCommitHash(cloneDir)
-				//if err != nil {
-				//	sess.Out.Error("Failed to get latest commit hash")
-				//	return
-				//}
-				err = nil
+				latestCommitHash, err := gitHandler.GetLatestCommitHash(cloneDir)
 				if err != nil {
-					fmt.Println(err)
+					sess.Out.Error("Failed to get latest commit hash")
+					return
+				}
+				err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
+				if err != nil {
+					sess.Out.Error("Failed to save scan history: %v", err)
 				}
 
 				// Cleanup
@@ -166,6 +173,10 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 	// Get checkpoint
 	checkpoint := ""
+	latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
+	if latestHistory != nil {
+		checkpoint = latestHistory.CommitHash
+	}
 
 	// Scan
 	scanRevisions(sess, repo, gitRepo, checkpoint, *sess.Options.GitScanPath, targetPathMap)
@@ -173,14 +184,14 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	sess.Stats.IncrementRepositories()
 	sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
 
-	//latestCommitHash, err := gitHandler.GetLatestCommitHash(*sess.Options.GitScanPath)
-	//if err != nil {
-	//	fmt.Println(err)
-	//}
-
-	err = nil
+	latestCommitHash, err := gitHandler.GetLatestCommitHash(*sess.Options.GitScanPath)
 	if err != nil {
 		fmt.Println(err)
+	}
+
+	err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
+	if err != nil {
+		sess.Out.Error("Failed to save scan history: %v", err)
 	}
 
 	// NO cleanup for local scan

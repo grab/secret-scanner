@@ -28,12 +28,13 @@ type Options struct {
 	//ClientSecret       *string
 	//UserID             *string
 	//UserPW             *string
-	EnvFilePath *string
-	RepoID      *string
-	ScanTarget  *string
-	Repos       *string
-	GitScanPath *string
-	UI          *bool
+	EnvFilePath          *string
+	HistoryStoreFilePath *string
+	RepoID               *string
+	ScanTarget           *string
+	Repos                *string
+	GitScanPath          *string
+	UI                   *bool
 }
 
 // ValidateOptions validates given options
@@ -142,12 +143,13 @@ func Parse() (Options, error) {
 		//ClientSecret:       flag.String("oauth-secret", "", "Specify Bitbucket Oauth2 client secret"),
 		//UserID:             flag.String("user-id", "", "Specify Bitbucket username"),
 		//UserPW:             flag.String("user-pw", "", "Specify Bitbucket password"),
-		EnvFilePath: flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
-		RepoID:      flag.String("repo-id", "", "Scan the repository with this ID"),
-		ScanTarget:  flag.String("scan-target", "", "Sub-directory within the repository to scan"),
-		Repos:       flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
-		GitScanPath: flag.String("git-scan-path", "", "Specify the local path to scan"),
-		UI:          flag.Bool("ui", false, "Serves up local UI for scan results if true, defaults to true"),
+		EnvFilePath:          flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
+		HistoryStoreFilePath: flag.String("history", "", "File path to store scan histories"),
+		RepoID:               flag.String("repo-id", "", "Scan the repository with this ID"),
+		ScanTarget:           flag.String("scan-target", "", "Sub-directory within the repository to scan"),
+		Repos:                flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
+		GitScanPath:          flag.String("git-scan-path", "", "Specify the local path to scan"),
+		UI:                   flag.Bool("ui", false, "Serves up local UI for scan results if true, defaults to true"),
 	}
 
 	flag.Parse()

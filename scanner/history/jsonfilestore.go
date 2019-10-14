@@ -5,16 +5,20 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
+
+	"github.com/mitchellh/go-homedir"
 )
 
+// JSONFileStore is a JSON-based storage for scan histories
 type JSONFileStore struct {
-	DataFile    *os.File
-	RecordBytes []byte
-	Records     map[string]*ScanHistory
+	DataFile *os.File
+	Records  map[string]*History
 }
 
+// Initialize ...
 func (fs *JSONFileStore) Initialize(filepath string) error {
-	file, err := os.Open(filepath)
+	file, err := os.OpenFile(filepath, os.O_RDWR, 0644)
 	if err != nil {
 		return err
 	}
@@ -25,78 +29,111 @@ func (fs *JSONFileStore) Initialize(filepath string) error {
 	}
 
 	fs.DataFile = file
-	fs.RecordBytes = recordBytes
+	fs.Records = map[string]*History{}
 
-	var records []*ScanHistory
+	var records []*History
 	err = json.Unmarshal(recordBytes, &records)
 	if err != nil {
 		return err
 	}
 
 	for _, record := range records {
-		fs.Records[fmt.Sprintf("%s:%s", record.GitProvider, record.RepoID)] = record
+		fs.Records[record.GetMapKey()] = record
 	}
-
-	//err = fs.HydrateRecords()
-	//if err != nil {
-	//	return err
-	//}
 
 	return nil
 }
 
-//func (fs *CSVFileStore) Close() error {
-//	if fs.DataFile != nil {
-//		err := fs.DataFile.Close()
-//		if err != nil {
-//			return err
-//		}
-//	}
-//
-//	return nil
-//}
+// Close cleans up resources
+func (fs *JSONFileStore) Close() {
+	if fs.DataFile != nil {
+		_ = fs.DataFile.Close()
+	}
+}
 
-//func (fs *CSVFileStore) FetchAllRecords() (records [][]string, err error) {
-//	records, err = csv.NewReader(fs.DataFile).ReadAll()
-//	if err != nil {
-//		return [][]string{}, err
-//	}
-//
-//	return records, nil
-//}
+// GetDefaultStorePath returns default store file path,
+// creates dir and file is not found
+func (fs *JSONFileStore) GetDefaultStorePath() (string, error) {
+	userHomeDir, err := homedir.Dir()
+	if err != nil {
+		return "", err
+	}
+	storeDirPath := path.Join(userHomeDir, DefaultStoreDir)
+	storeFilePath := path.Join(storeDirPath, DefaultStoreFile)
 
-//func (fs *CSVFileStore) HydrateRecords() error {
-//	if len(fs.RecordStrings) > 0 {
-//		var histories []*ScanHistory
-//
-//		for _, line := range fs.RecordStrings {
-//			history := &ScanHistory{
-//				GitProvider: line[0],
-//				RepoID:      line[1],
-//				CommitHash:  line[2],
-//				CreatedAt:   line[3],
-//			}
-//
-//			histories = append(histories, history)
-//		}
-//
-//		fs.Records = histories
-//	}
-//
-//	return nil
-//}
+	if _, err := os.Stat(storeFilePath); err != nil {
+		if os.IsNotExist(err) {
+			// attempt create dir and file
+			err = fs.createDefaultStoreFile(storeDirPath, DefaultStoreFile)
+			if err != nil {
+				return "", err
+			}
 
-//func (fs *CSVFileStore) Get(gitprovider, repoID string) *ScanHistory {
-//
-//}
-//
-//func (fs *CSVFileStore) Save(history *ScanHistory) error {
-//	record := []string{history.GitProvider, history.RepoID, history.CommitHash, history.CreatedAt}
-//
-//	err := fs.Writer.Write(record)
-//	if err != nil {
-//		return err
-//	}
-//
-//	return nil
-//}
+			return storeFilePath, nil
+		}
+
+		return "", err
+	}
+
+	return storeFilePath, nil
+}
+
+// Get retrieves history from store
+func (fs *JSONFileStore) Get(gitprovider, repoID string) *History {
+	val, exists := fs.Records[fmt.Sprintf("%s:%s", gitprovider, repoID)]
+	if exists {
+		return val
+	}
+	return nil
+}
+
+// Save persists records to file
+func (fs *JSONFileStore) Save(history *History) error {
+	fs.Records[history.GetMapKey()] = history
+
+	var histories []*History
+
+	for _, val := range fs.Records {
+		histories = append(histories, val)
+	}
+
+	jsonBytes, err := json.Marshal(histories)
+	if err != nil {
+		return err
+	}
+
+	err = fs.DataFile.Truncate(0)
+	if err != nil {
+		return err
+	}
+
+	_, err = fs.DataFile.WriteAt(jsonBytes, 0)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (fs *JSONFileStore) createDefaultStoreFile(dirPath, filename string) error {
+	err := os.MkdirAll(dirPath, 0700)
+	if err != nil {
+		return err
+	}
+
+	storeFile, err := os.Create(path.Join(dirPath, filename))
+	if err != nil {
+		return err
+	}
+
+	_, err = storeFile.Write([]byte("[]"))
+	if err != nil {
+		return err
+	}
+
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(storeFile)
+
+	return nil
+}
