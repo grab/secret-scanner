@@ -14,7 +14,6 @@ import (
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
 	gitHandler "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
@@ -76,10 +75,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 				// Get checkpoint
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
-				checkpoint, err := db.GetCheckpoint(repo.ID, sess.Store.Connection)
-				if err != nil {
-					sess.Out.Debug("DB Error: %s\n", err)
-				}
+				checkpoint := ""
 
 				// Gather scan targets
 				targets := sess.Options.ParseScanTargets()
@@ -96,12 +92,12 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 				// Scan
 				scanRevisions(sess, repo, clone, checkpoint, cloneDir, targetPathMap)
-				latestCommitHash, err := gitHandler.GetLatestCommitHash(cloneDir)
-				if err != nil {
-					sess.Out.Error("Failed to get latest commit hash")
-					return
-				}
-				err = db.UpdateCheckpoint(cloneDir, repo.ID, latestCommitHash, sess.Store.Connection)
+				//latestCommitHash, err := gitHandler.GetLatestCommitHash(cloneDir)
+				//if err != nil {
+				//	sess.Out.Error("Failed to get latest commit hash")
+				//	return
+				//}
+				err = nil
 				if err != nil {
 					fmt.Println(err)
 				}
@@ -169,10 +165,7 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	}
 
 	// Get checkpoint
-	checkpoint, err := db.GetCheckpoint(localID, sess.Store.Connection)
-	if err != nil {
-		sess.Out.Debug("DB Error: %s\n", err)
-	}
+	checkpoint := ""
 
 	// Scan
 	scanRevisions(sess, repo, gitRepo, checkpoint, *sess.Options.GitScanPath, targetPathMap)
@@ -180,12 +173,12 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	sess.Stats.IncrementRepositories()
 	sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
 
-	latestCommitHash, err := gitHandler.GetLatestCommitHash(*sess.Options.GitScanPath)
-	if err != nil {
-		fmt.Println(err)
-	}
+	//latestCommitHash, err := gitHandler.GetLatestCommitHash(*sess.Options.GitScanPath)
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
 
-	err = db.UpdateCheckpoint(*sess.Options.GitScanPath, repo.ID, latestCommitHash, sess.Store.Connection)
+	err = nil
 	if err != nil {
 		fmt.Println(err)
 	}

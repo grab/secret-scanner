@@ -43,9 +43,6 @@ func TestSession_Initialize(t *testing.T) {
 	if sess.Out == nil {
 		t.Errorf("Want Logger, got nil")
 	}
-	if sess.Store == nil {
-		t.Errorf("Want Store, got nil")
-	}
 	if sess.Stats == nil {
 		t.Errorf("Want Stats, got nil")
 	}
@@ -71,15 +68,6 @@ func TestSession_InitLogger(t *testing.T) {
 	sess.Initialize(defaultOptions)
 	if sess.Out == nil {
 		t.Errorf("Want Logger, got nil")
-	}
-	sess.End()
-}
-
-func TestSession_InitDB(t *testing.T) {
-	sess := createNewSession()
-	sess.Initialize(defaultOptions)
-	if sess.Store == nil {
-		t.Errorf("Want Store, got nil")
 	}
 	sess.End()
 }
@@ -147,7 +135,6 @@ func createNewSession() *Session {
 		Out:          nil,
 		Stats:        nil,
 		Findings:     nil,
-		Store:        nil,
 		Repositories: nil,
 		Signatures:   nil,
 	}

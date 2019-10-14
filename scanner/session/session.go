@@ -4,10 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
-	"os"
 	"runtime"
 	"sync"
 	"time"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/history"
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
 
@@ -17,8 +18,6 @@ import (
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/stats"
-
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
 )
 
 // Session contains fields describing a scan session
@@ -29,30 +28,30 @@ type Session struct {
 	Out          *log.Logger     `json:"-"`
 	Stats        *stats.Stats
 	Findings     []*findings.Finding
-	Store        *db.MysqlHandler
 	Repositories []*gitprovider.Repository
 	Signatures   []signatures.Signature
+	HistoryStore *history.JSONFileStore
 }
 
 // Initialize inits a scan session
 func (s *Session) Initialize(options options.Options) {
 	s.Options = options
 	s.InitLogger()
-	s.InitDB()
 	s.InitStats()
 	s.InitThreads()
 	s.Signatures = signatures.LoadSignatures()
+
+	//s.HistoryStore = &
+	//err := .Initialize("../../test.json")
+	//if err != nil {
+	//	fmt.Println(err)
+	//}
 }
 
 // End end a scan session
 func (s *Session) End() {
 	s.Stats.FinishedAt = time.Now()
 	s.Stats.Status = StatusFinished
-	//closing db connectoin
-	err := s.Store.CloseConnection()
-	if err != nil {
-		fmt.Println("Unable to close db connection: ", err)
-	}
 }
 
 // InitLogger inits a logger
@@ -60,23 +59,6 @@ func (s *Session) InitLogger() {
 	s.Out = &log.Logger{}
 	s.Out.SetDebug(*s.Options.Debug)
 	s.Out.SetSilent(*s.Options.Silent)
-}
-
-// InitDB inits db
-func (s *Session) InitDB() {
-	//Opening DB Connection
-	s.Store = db.GetInstance()
-	err := s.Store.OpenConnection(
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASS"),
-		os.Getenv("DB_NAME"),
-	)
-	if err != nil {
-		fmt.Println("Unable to open db connection: ", err)
-		// os.Exit(1)
-	}
 }
 
 // InitStats inits stats
