@@ -5,9 +5,13 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/history"
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
 
@@ -17,8 +21,6 @@ import (
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/stats"
-
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/db"
 )
 
 // Session contains fields describing a scan session
@@ -29,16 +31,16 @@ type Session struct {
 	Out          *log.Logger     `json:"-"`
 	Stats        *stats.Stats
 	Findings     []*findings.Finding
-	Store        *db.MysqlHandler
 	Repositories []*gitprovider.Repository
 	Signatures   []signatures.Signature
+	HistoryStore *history.JSONFileStore
 }
 
 // Initialize inits a scan session
 func (s *Session) Initialize(options options.Options) {
 	s.Options = options
+	s.InitHistoryStoreOrFail(*options.HistoryStoreFilePath)
 	s.InitLogger()
-	s.InitDB()
 	s.InitStats()
 	s.InitThreads()
 	s.Signatures = signatures.LoadSignatures()
@@ -48,10 +50,26 @@ func (s *Session) Initialize(options options.Options) {
 func (s *Session) End() {
 	s.Stats.FinishedAt = time.Now()
 	s.Stats.Status = StatusFinished
-	//closing db connectoin
-	err := s.Store.CloseConnection()
+	s.HistoryStore.Close()
+}
+
+// InitHistoryStoreOrFail inits a history storage
+func (s *Session) InitHistoryStoreOrFail(filepath string) {
+	s.HistoryStore = &history.JSONFileStore{}
+
+	if filepath == "" {
+		defaultPath, err := s.HistoryStore.GetDefaultStorePath()
+		if err != nil {
+			fmt.Println(fmt.Sprintf("Unable to create default history file path: %v", err))
+			os.Exit(1)
+		}
+		filepath = defaultPath
+	}
+
+	err := s.HistoryStore.Initialize(filepath)
 	if err != nil {
-		fmt.Println("Unable to close db connection: ", err)
+		fmt.Println(fmt.Sprintf("Unable to initialize HistoryStore: %v", err))
+		os.Exit(1)
 	}
 }
 
@@ -60,23 +78,6 @@ func (s *Session) InitLogger() {
 	s.Out = &log.Logger{}
 	s.Out.SetDebug(*s.Options.Debug)
 	s.Out.SetSilent(*s.Options.Silent)
-}
-
-// InitDB inits db
-func (s *Session) InitDB() {
-	//Opening DB Connection
-	s.Store = db.GetInstance()
-	err := s.Store.OpenConnection(
-		os.Getenv("DB_HOST"),
-		os.Getenv("DB_PORT"),
-		os.Getenv("DB_USER"),
-		os.Getenv("DB_PASS"),
-		os.Getenv("DB_NAME"),
-	)
-	if err != nil {
-		fmt.Println("Unable to open db connection: ", err)
-		// os.Exit(1)
-	}
 }
 
 // InitStats inits stats
@@ -111,14 +112,46 @@ func (s *Session) AddFinding(finding *findings.Finding) {
 
 // SaveToFile exports scan results to file
 func (s *Session) SaveToFile(location string) error {
+	// get absolute path
+	absPath, err := filepath.Abs(location)
+	if err != nil {
+		return err
+	}
+
+	// session to json bytes
 	sessionJSON, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(location, sessionJSON, 0644)
+
+	// if exists write to file
+	if filehandler.FileExists(absPath) {
+		err = ioutil.WriteFile(absPath, sessionJSON, 0644)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// create dirs
+	dirPath := path.Dir(absPath)
+	err = os.MkdirAll(dirPath, 0700)
 	if err != nil {
 		return err
 	}
+
+	// create file
+	_, err = os.Create(absPath)
+	if err != nil {
+		return err
+	}
+
+	// write to file
+	err = ioutil.WriteFile(absPath, sessionJSON, 0644)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
