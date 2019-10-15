@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"path"
+	"path/filepath"
 	"runtime"
 	"sync"
 	"time"
@@ -110,14 +112,46 @@ func (s *Session) AddFinding(finding *findings.Finding) {
 
 // SaveToFile exports scan results to file
 func (s *Session) SaveToFile(location string) error {
+	// get absolute path
+	absPath, err := filepath.Abs(location)
+	if err != nil {
+		return err
+	}
+
+	// session to json bytes
 	sessionJSON, err := json.Marshal(s)
 	if err != nil {
 		return err
 	}
-	err = ioutil.WriteFile(location, sessionJSON, 0644)
+
+	// if exists write to file
+	if filehandler.FileExists(absPath) {
+		err = ioutil.WriteFile(absPath, sessionJSON, 0644)
+		if err != nil {
+			return err
+		}
+		return nil
+	}
+
+	// create dirs
+	dirPath := path.Dir(absPath)
+	err = os.MkdirAll(dirPath, 0700)
 	if err != nil {
 		return err
 	}
+
+	// create file
+	_, err = os.Create(absPath)
+	if err != nil {
+		return err
+	}
+
+	// write to file
+	err = ioutil.WriteFile(absPath, sessionJSON, 0644)
+	if err != nil {
+		return err
+	}
+
 	return nil
 }
 
