@@ -4,7 +4,7 @@ Secret scanner is a command-line tool to scan Git repositories for any sensitive
 
 It does so by looking at file names, extensions, and content, attempting to match them against a list of signatures.
 
-The tool is loosely based on <a href="https://github.com/michenriksen/gitrob">Gitrob</a>, with added support for Gitlab and Bitbucket on top of Github.
+The tool is based on <a href="https://github.com/michenriksen/gitrob">Gitrob</a>, with added support for Gitlab and Bitbucket on top of Github.
 
 For more information: https://wiki.grab.com/display/IS/Code+secrets+scanner
 
@@ -133,3 +133,9 @@ You can turn it off by specifying `ui` to false.
 -ui bool
     Serves up local UI for scan results if true, (default true)
 ```
+
+## Credits
+
+Project is built upon the ground work laid in <a href="https://github.com/michenriksen/gitrob" target="_blank">Gitrob</a> by <a href="https://michenriksen.com/" target="_blank">Michael Henriksen</a>.
+
+And many secret signatures was taken from <a href="https://github.com/eth0izzle/shhgit/" target="_blank">shhgit</a>.
