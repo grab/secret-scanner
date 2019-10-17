@@ -5,7 +5,10 @@
 
 package signatures
 
-import "regexp"
+import (
+	"regexp"
+	"strings"
+)
 
 // PatternSignature ...
 type PatternSignature struct {
@@ -16,7 +19,7 @@ type PatternSignature struct {
 }
 
 // Match checks if given file matches with signature
-func (s PatternSignature) Match(file MatchFile) bool {
+func (s PatternSignature) Match(file MatchFile) []*MatchResult {
 	var haystack *string
 	switch s.part {
 	case PartPath:
@@ -28,10 +31,28 @@ func (s PatternSignature) Match(file MatchFile) bool {
 	case PartContent:
 		haystack = &file.Content
 	default:
-		return false
+		return nil
 	}
 
-	return s.match.MatchString(*haystack)
+	var matchResults []*MatchResult
+	contentBytes := []byte(file.ContentRaw)
+	locations := s.match.FindAllIndex([]byte(*haystack), -1)
+
+	for _, loc := range locations {
+		contentBytesBefLine := contentBytes[0 : loc[1]-1]
+		befLines := strings.Split(string(contentBytesBefLine), "\n")
+		lineNo := len(befLines)
+
+		matchResults = append(matchResults, &MatchResult{
+			Filename:    file.Filename,
+			Path:        file.Path,
+			Extension:   file.Extension,
+			Line:        uint64(lineNo),
+			LineContent: string(contentBytes[loc[0]:loc[1]]),
+		})
+	}
+
+	return matchResults
 }
 
 // Description returns signature description

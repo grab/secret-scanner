@@ -11,6 +11,11 @@ import (
 	"io"
 )
 
+const (
+	// MaxLineChar defines the maximum number of characters in line content
+	MaxLineChar = 100
+)
+
 // Finding holds the info for scan finding
 type Finding struct {
 	ID              string
@@ -24,6 +29,8 @@ type Finding struct {
 	CommitMessage   string
 	CommitAuthor    string
 	FileURL         string
+	Line            uint64
+	LineContent     string
 	CommitURL       string
 	RepositoryURL   string
 	IsTestContext   bool
@@ -45,4 +52,12 @@ func (f *Finding) GenerateHashID() (hash string, err error) {
 	// io.WriteString(h, f.CommitHash)
 	// io.WriteString(h, f.CommitMessage)
 	// io.WriteString(h, f.CommitAuthor)
+}
+
+// TruncateLineContent truncates line content
+func (f *Finding) TruncateLineContent(maxLen int) {
+	lineLen := len(f.LineContent)
+	if maxLen > 0 && lineLen > 0 && lineLen > maxLen {
+		f.LineContent = f.LineContent[0:maxLen]
+	}
 }

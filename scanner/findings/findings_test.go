@@ -19,6 +19,21 @@ func TestFinding_GenerateHashID(t *testing.T) {
 	}
 }
 
+func TestFinding_TruncateLineContent(t *testing.T) {
+	finding := createNewFinding()
+	finding.LineContent = "this is a line content with 47 characters in it"
+
+	finding.TruncateLineContent(10)
+	if finding.LineContent != "this is a " {
+		t.Errorf("Want \"this is a \", got %v", finding.LineContent)
+	}
+
+	finding.TruncateLineContent(0)
+	if finding.LineContent != "this is a " {
+		t.Errorf("Want \"this is a \", got %v", finding.LineContent)
+	}
+}
+
 func createNewFinding() *Finding {
 	return &Finding{
 		ID:              "",
@@ -32,7 +47,10 @@ func createNewFinding() *Finding {
 		CommitMessage:   "",
 		CommitAuthor:    "",
 		FileURL:         "",
+		Line:            0,
+		LineContent:     "",
 		CommitURL:       "",
 		RepositoryURL:   "",
+		IsTestContext:   false,
 	}
 }

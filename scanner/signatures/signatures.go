@@ -12,7 +12,7 @@ import (
 
 // Signature defines fields for a secret signature
 type Signature interface {
-	Match(file MatchFile) bool
+	Match(file MatchFile) []*MatchResult
 	Description() string
 	Comment() string
 	Part() string
@@ -20,10 +20,20 @@ type Signature interface {
 
 // MatchFile contains details of a matching file
 type MatchFile struct {
-	Path      string
-	Filename  string
-	Extension string
-	Content   string
+	Path       string
+	Filename   string
+	Extension  string
+	Content    string
+	ContentRaw string
+}
+
+// MatchResult contains match info
+type MatchResult struct {
+	Filename    string
+	Path        string
+	Extension   string
+	Line        uint64
+	LineContent string
 }
 
 // IsSkippable determines if a given matched file can be ignored
@@ -60,12 +70,12 @@ func (f *MatchFile) IsTestContext() bool {
 func NewMatchFile(path string, content string) MatchFile {
 	_, filename := filepath.Split(path)
 	extension := filepath.Ext(path)
-	content = strings.ToLower(content)
 	return MatchFile{
-		Path:      path,
-		Filename:  filename,
-		Extension: extension,
-		Content:   content,
+		Path:       path,
+		Filename:   filename,
+		Extension:  extension,
+		Content:    strings.ToLower(content),
+		ContentRaw: content,
 	}
 }
 
