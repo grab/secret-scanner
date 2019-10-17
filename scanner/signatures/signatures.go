@@ -6,6 +6,7 @@
 package signatures
 
 import (
+	"os"
 	"path/filepath"
 	"strings"
 )
@@ -40,25 +41,52 @@ type MatchResult struct {
 func (f *MatchFile) IsSkippable() bool {
 	ext := strings.ToLower(f.Extension)
 	path := strings.ToLower(f.Path)
-	for _, skippableExt := range skippableExtensions {
-		if ext == skippableExt {
+	skipExts := skippableExtensions
+	skipPaths := skippablePathIndicators
+
+	if envSkipExt := os.Getenv("SKIP_EXT"); envSkipExt != "" {
+		skipExts = strings.Split(envSkipExt, ",")
+		for i, s := range skipExts {
+			skipExts[i] = strings.TrimSpace(s)
+		}
+	}
+
+	for _, skipExt := range skipExts {
+		if ext == skipExt {
 			return true
 		}
 	}
-	for _, skippablePathIndicator := range skippablePathIndicators {
-		if strings.Contains(path, skippablePathIndicator) {
+
+	if envSkipPaths := os.Getenv("SKIP_PATHS"); envSkipPaths != "" {
+		skipPaths = strings.Split(envSkipPaths, ",")
+		for i, s := range skipPaths {
+			skipPaths[i] = strings.TrimSpace(s)
+		}
+	}
+
+	for _, skipPath := range skipPaths {
+		if strings.Contains(path, skipPath) {
 			return true
 		}
 	}
+
 	return false
 }
 
 // IsTestContext checks if file is in a test context
 func (f *MatchFile) IsTestContext() bool {
 	path := strings.ToLower(f.Path)
+	skipTestPaths := skippableTestPaths
 
-	for _, skippableTestContext := range skippableTestContexts {
-		if strings.Contains(path, skippableTestContext) {
+	if envSkipPaths := os.Getenv("SKIP_TEST_PATHS"); envSkipPaths != "" {
+		skipTestPaths = strings.Split(envSkipPaths, ",")
+		for i, s := range skipTestPaths {
+			skipTestPaths[i] = strings.TrimSpace(s)
+		}
+	}
+
+	for _, skipTestPath := range skipTestPaths {
+		if strings.Contains(path, skipTestPath) {
 			return true
 		}
 	}

@@ -84,9 +84,12 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 				// Get checkpoint
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
 				checkpoint := ""
-				latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
-				if latestHistory != nil {
-					checkpoint = latestHistory.CommitHash
+
+				if !*sess.Options.NoHistory {
+					latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
+					if latestHistory != nil {
+						checkpoint = latestHistory.CommitHash
+					}
 				}
 
 				// Gather scan targets
@@ -109,9 +112,12 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 					sess.Out.Error("Failed to get latest commit hash")
 					return
 				}
-				err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
-				if err != nil {
-					sess.Out.Error("Failed to save scan history: %v", err)
+
+				if !*sess.Options.NoHistory {
+					err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
+					if err != nil {
+						sess.Out.Error("Failed to save scan history: %v", err)
+					}
 				}
 
 				// Cleanup
@@ -178,9 +184,11 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 	// Get checkpoint
 	checkpoint := ""
-	latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
-	if latestHistory != nil {
-		checkpoint = latestHistory.CommitHash
+	if !*sess.Options.NoHistory {
+		latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
+		if latestHistory != nil {
+			checkpoint = latestHistory.CommitHash
+		}
 	}
 
 	// Scan
@@ -194,9 +202,11 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 		fmt.Println(err)
 	}
 
-	err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
-	if err != nil {
-		sess.Out.Error("Failed to save scan history: %v", err)
+	if !*sess.Options.NoHistory {
+		err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
+		if err != nil {
+			sess.Out.Error("Failed to save scan history: %v", err)
+		}
 	}
 
 	// NO cleanup for local scan
@@ -287,10 +297,13 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 					RepositoryURL:  repo.URL,
 					FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, subPath),
 					Line:           match.Line,
-					LineContent:    match.LineContent,
 					IsTestContext:  isTestContext,
 				}
-				finding.TruncateLineContent(findings.MaxLineChar)
+
+				if *sess.Options.LogSecret {
+					finding.LineContent = match.LineContent
+					finding.TruncateLineContent(findings.MaxLineChar)
+				}
 
 				hashID, err := finding.GenerateHashID()
 				if err != nil {
@@ -308,7 +321,6 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 				sess.Out.Info("  Comment.....: %s\n", finding.Comment)
 				sess.Out.Info("  File URL....: %s\n", finding.FileURL)
 				sess.Out.Info("  Line........: %v\n", finding.Line)
-				sess.Out.Info("  Line Content: %s\n", finding.LineContent)
 				sess.Out.Info(" ------------------------------------------------\n\n")
 				sess.Stats.IncrementFindings()
 			}
@@ -380,10 +392,13 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 						RepositoryURL:  repo.URL,
 						FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
 						Line:           match.Line,
-						LineContent:    match.LineContent,
 						IsTestContext:  isTestContext,
 					}
-					finding.TruncateLineContent(findings.MaxLineChar)
+
+					if *sess.Options.LogSecret {
+						finding.LineContent = match.LineContent
+						finding.TruncateLineContent(findings.MaxLineChar)
+					}
 
 					hashID, err := finding.GenerateHashID()
 					if err != nil {
@@ -401,7 +416,6 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 					sess.Out.Info("  Comment.....: %s\n", finding.Comment)
 					sess.Out.Info("  File URL....: %s\n", finding.FileURL)
 					sess.Out.Info("  Line........: %v\n", finding.Line)
-					sess.Out.Info("  Line Content: %s\n", finding.LineContent)
 					sess.Out.Info(" ------------------------------------------------\n\n")
 					sess.Stats.IncrementFindings()
 				}

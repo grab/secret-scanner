@@ -6,11 +6,9 @@ It does so by looking at file names, extensions, and content, attempting to matc
 
 The tool is based on <a href="https://github.com/michenriksen/gitrob">Gitrob</a>, with added support for Gitlab and Bitbucket on top of Github.
 
-For more information: https://wiki.grab.com/display/IS/Code+secrets+scanner
-
 ## Setup
 
-The use of this tool requires you to set various Git provider (Github / Gitlab / Bitbucket) options such as API base URL and tokens in your environment.
+The use of this tool requires you to set various Git provider (Github / Gitlab / Bitbucket) options such as API base URL, tokens, etc in your environment if you would like to scan your own private repositories.
 
 You can do so by:
 ```
@@ -26,6 +24,14 @@ The precedence of usage is as follows from highest to lowest:
 2. .env file
 3. CLI exported
 4. Values from .bash_profile
+
+### Skip Files
+
+You can define paths to be excluded from scanning by defining them in a comma separated format in `.env` file.
+
+`SKIP_EXT` defines the file extensions to be excluded
+`SKIP_PATHS` defines the paths/files to be excluded if the path matches one of the patterns defined in the list
+`SKIP_TEST_PATHS` defines any test directories/files that you would like to skip. It is being kept separately from `SKIP_PATHS` because sometimes it may be useful to scan the test files as well. You can toggle to scan test files by giving `-skip-test=false` in the CLI.
 
 ## Usage
 
@@ -72,6 +78,18 @@ By default, findings found during the scan will be printed as console output. Yo
 ./secret-scanner -git github -env .env -repo-list repo.csv -save ./report.json
 ```
 
+## Scan History
+
+By default, no scan history is being kept, meaning every scan on the same repository will start afresh.
+
+If scan history is enabled, the scanner will save the latest scan session and commit hash in JSON format. From the next scan onwards for the same repository,the scanner will only scan changes since the last saved commit hash.
+
+The default location of scan history JSON file is in `~/.secret-scanner/`. You can define the place you want to store the history by giving `-history my/custom/path/to/history` in the CLI
+
+```
+./secret-scanner -git github -env .env -repo-list repo.csv -save ./report.json -no-history=false -history my/custom/path/to/history
+```
+
 ### Web UI
 
 By default, the after the scan is completed, a local web server will be spun up containing the findings in a nice UI.
@@ -103,8 +121,17 @@ You can turn it off by specifying `ui` to false.
 -git-scan-path string
     Specify the local path to scan
 
+-history string
+    File path to store scan histories
+
 -load string
     Load session file
+
+-log-secret bool
+    If true, the matched secret will be included in results save file (default true)
+
+-no-history bool
+    If no-history is on, every scan will be treated as a brand new scan. (default true)
 
 -repo-id string
     Scan the repository with this ID
