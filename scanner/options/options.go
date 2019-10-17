@@ -25,6 +25,8 @@ type Options struct {
 	Silent           *bool
 	Debug            *bool
 	SkipTestContexts *bool
+	NoHistory        *bool
+	LogSecret        *bool
 
 	GitProvider *string
 	BaseURL     *string
@@ -140,6 +142,8 @@ func Parse() (Options, error) {
 		Silent:           flag.Bool("silent", false, "Suppress all output except for errors"),
 		Debug:            flag.Bool("debug", false, "Print debugging information"),
 		SkipTestContexts: flag.Bool("skip-tests", false, "Skips possible test contexts"),
+		NoHistory:        flag.Bool("no-history", true, "If no-history is on, every scan will be treated as a brand new scan."),
+		LogSecret:        flag.Bool("log-secret", true, "If true, the matched secret will be included in results save file"),
 
 		GitProvider: flag.String("git", "", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
 		BaseURL:     flag.String("baseurl", "", "Specify Git provider base URL"),

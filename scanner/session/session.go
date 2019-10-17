@@ -37,7 +37,7 @@ type Session struct {
 	Stats        *stats.Stats
 	Findings     []*findings.Finding
 	Repositories []*gitprovider.Repository
-	Signatures   []signatures.Signature
+	Signatures   []signatures.Signature `json:"-"`
 	HistoryStore *history.JSONFileStore
 }
 

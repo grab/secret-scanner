@@ -84,9 +84,12 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 				// Get checkpoint
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
 				checkpoint := ""
-				latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
-				if latestHistory != nil {
-					checkpoint = latestHistory.CommitHash
+
+				if !*sess.Options.NoHistory {
+					latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
+					if latestHistory != nil {
+						checkpoint = latestHistory.CommitHash
+					}
 				}
 
 				// Gather scan targets
@@ -109,9 +112,12 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 					sess.Out.Error("Failed to get latest commit hash")
 					return
 				}
-				err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
-				if err != nil {
-					sess.Out.Error("Failed to save scan history: %v", err)
+
+				if !*sess.Options.NoHistory {
+					err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
+					if err != nil {
+						sess.Out.Error("Failed to save scan history: %v", err)
+					}
 				}
 
 				// Cleanup
@@ -178,9 +184,11 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 	// Get checkpoint
 	checkpoint := ""
-	latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
-	if latestHistory != nil {
-		checkpoint = latestHistory.CommitHash
+	if !*sess.Options.NoHistory {
+		latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
+		if latestHistory != nil {
+			checkpoint = latestHistory.CommitHash
+		}
 	}
 
 	// Scan
@@ -194,9 +202,11 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 		fmt.Println(err)
 	}
 
-	err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
-	if err != nil {
-		sess.Out.Error("Failed to save scan history: %v", err)
+	if !*sess.Options.NoHistory {
+		err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
+		if err != nil {
+			sess.Out.Error("Failed to save scan history: %v", err)
+		}
 	}
 
 	// NO cleanup for local scan
@@ -275,7 +285,9 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 		}
 		sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
 		for _, signature := range sess.Signatures {
-			if signature.Match(matchFile) {
+			matches := signature.Match(matchFile)
+
+			for _, match := range matches {
 				finding := &findings.Finding{
 					FilePath:       subPath,
 					Action:         signature.Part(),
@@ -284,7 +296,13 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 					RepositoryName: repo.Name,
 					RepositoryURL:  repo.URL,
 					FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, subPath),
+					Line:           match.Line,
 					IsTestContext:  isTestContext,
+				}
+
+				if *sess.Options.LogSecret {
+					finding.LineContent = match.LineContent
+					finding.TruncateLineContent(findings.MaxLineChar)
 				}
 
 				hashID, err := finding.GenerateHashID()
@@ -297,11 +315,12 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 				sess.AddFinding(finding)
 
 				sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.PathScan), finding.Description)
-				sess.Out.Info("  Path.......: %s\n", finding.FilePath)
-				sess.Out.Info("  Repo.......: %s\n", repo.FullName)
-				sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
-				sess.Out.Info("  Comment....: %s\n", finding.Comment)
-				sess.Out.Info("  File URL...: %s\n", finding.FileURL)
+				sess.Out.Info("  Path........: %s\n", finding.FilePath)
+				sess.Out.Info("  Repo........: %s\n", repo.FullName)
+				sess.Out.Info("  Author......: %s\n", finding.CommitAuthor)
+				sess.Out.Info("  Comment.....: %s\n", finding.Comment)
+				sess.Out.Info("  File URL....: %s\n", finding.FileURL)
+				sess.Out.Info("  Line........: %v\n", finding.Line)
 				sess.Out.Info(" ------------------------------------------------\n\n")
 				sess.Stats.IncrementFindings()
 			}
@@ -312,14 +331,14 @@ func scanCurrentGitRevision(sess *session.Session, repo *gitprovider.Repository,
 // scanGitCommits run a scan to analyze the diffs present in the commit history
 // It will scan the commit history till the checkpoint (last scanned commit) is reached
 func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *git.Repository, dir, checkpoint string, targetPathMap map[string]string) {
-	history, err := gitHandler.GetRepositoryHistory(clone)
+	commitHistories, err := gitHandler.GetRepositoryHistory(clone)
 	if err != nil {
 		sess.Out.Error("[THREAD][%s] Error getting commit history: %s\n", repo.FullName, err)
 		return
 	}
-	sess.Out.Debug("[THREAD][%s] Number of commits: %d\n", repo.FullName, len(history))
+	sess.Out.Debug("[THREAD][%s] Number of commits: %d\n", repo.FullName, len(commitHistories))
 
-	for _, commit := range history {
+	for _, commit := range commitHistories {
 		if strings.TrimSpace(commit.Hash.String()) == strings.TrimSpace(checkpoint) {
 			sess.Out.Debug("\nCheckpoint Reached !!\n")
 			break
@@ -361,50 +380,90 @@ func scanGitCommits(sess *session.Session, repo *gitprovider.Repository, clone *
 			}
 			sess.Out.Debug("[THREAD][%s] Matching: %s...\n", repo.FullName, matchFile.Path)
 			for _, signature := range sess.Signatures {
-				if signature.Match(matchFile) {
-					latestContent, err := ioutil.ReadFile(path.Join(dir, p))
+				matches := signature.Match(matchFile)
+
+				for _, match := range matches {
+					finding := &findings.Finding{
+						FilePath:       p,
+						Action:         signature.Part(),
+						Description:    signature.Description(),
+						Comment:        signature.Comment(),
+						RepositoryName: repo.Name,
+						RepositoryURL:  repo.URL,
+						FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
+						Line:           match.Line,
+						IsTestContext:  isTestContext,
+					}
+
+					if *sess.Options.LogSecret {
+						finding.LineContent = match.LineContent
+						finding.TruncateLineContent(findings.MaxLineChar)
+					}
+
+					hashID, err := finding.GenerateHashID()
 					if err != nil {
-						sess.Out.Info("[LATEST FILE NOT FOUND]: %s/%s\n", dir, p)
+						sess.Out.Error("Unable to generate hash ID for %v, skipping...", finding.FileURL)
 						continue
 					}
-					matchFile = signatures.NewMatchFile(p, string(latestContent))
-					if signature.Match(matchFile) {
-						finding := &findings.Finding{
-							FilePath:       p,
-							Action:         session.ContentScan,
-							Description:    signature.Description(),
-							Comment:        signature.Comment(),
-							RepositoryName: repo.Name,
-							CommitHash:     commit.Hash.String(),
-							CommitMessage:  strings.TrimSpace(commit.Message),
-							CommitAuthor:   commit.Author.String(),
-							RepositoryURL:  repo.URL,
-							FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
-							CommitURL:      fmt.Sprintf("%s/commit/%s", repo.URL, commit.Hash.String()),
-							IsTestContext:  isTestContext,
-						}
+					finding.ID = hashID
 
-						hashID, err := finding.GenerateHashID()
-						if err != nil {
-							sess.Out.Error("Unable to generate hash ID for %v, skipping...", finding.FileURL)
-							continue
-						}
-						finding.ID = hashID
+					sess.AddFinding(finding)
 
-						sess.AddFinding(finding)
-
-						sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.ContentScan), finding.Description)
-						sess.Out.Info("  Path.......: %s\n", finding.FilePath)
-						sess.Out.Info("  Repo.......: %s\n", repo.FullName)
-						sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
-						sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
-						sess.Out.Info("  Comment....: %s\n", finding.Comment)
-						sess.Out.Info("  File URL...: %s\n", finding.FileURL)
-						sess.Out.Info("  Commit URL.: %s\n", finding.CommitURL)
-						sess.Out.Info(" ------------------------------------------------\n\n")
-						sess.Stats.IncrementFindings()
-					}
+					sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.PathScan), finding.Description)
+					sess.Out.Info("  Path........: %s\n", finding.FilePath)
+					sess.Out.Info("  Repo........: %s\n", repo.FullName)
+					sess.Out.Info("  Author......: %s\n", finding.CommitAuthor)
+					sess.Out.Info("  Comment.....: %s\n", finding.Comment)
+					sess.Out.Info("  File URL....: %s\n", finding.FileURL)
+					sess.Out.Info("  Line........: %v\n", finding.Line)
+					sess.Out.Info(" ------------------------------------------------\n\n")
+					sess.Stats.IncrementFindings()
 				}
+
+				//if signature.Match(matchFile) {
+				//	latestContent, err := ioutil.ReadFile(path.Join(dir, p))
+				//	if err != nil {
+				//		sess.Out.Info("[LATEST FILE NOT FOUND]: %s/%s\n", dir, p)
+				//		continue
+				//	}
+				//	matchFile = signatures.NewMatchFile(p, string(latestContent))
+				//	if signature.Match(matchFile) {
+				//		finding := &findings.Finding{
+				//			FilePath:       p,
+				//			Action:         session.ContentScan,
+				//			Description:    signature.Description(),
+				//			Comment:        signature.Comment(),
+				//			RepositoryName: repo.Name,
+				//			CommitHash:     commit.Hash.String(),
+				//			CommitMessage:  strings.TrimSpace(commit.Message),
+				//			CommitAuthor:   commit.Author.String(),
+				//			RepositoryURL:  repo.URL,
+				//			FileURL:        fmt.Sprintf("%s/blob/%s/%s", repo.URL, repo.DefaultBranch, p),
+				//			CommitURL:      fmt.Sprintf("%s/commit/%s", repo.URL, commit.Hash.String()),
+				//			IsTestContext:  isTestContext,
+				//		}
+				//
+				//		hashID, err := finding.GenerateHashID()
+				//		if err != nil {
+				//			sess.Out.Error("Unable to generate hash ID for %v, skipping...", finding.FileURL)
+				//			continue
+				//		}
+				//		finding.ID = hashID
+				//
+				//		sess.AddFinding(finding)
+				//
+				//		sess.Out.Warn(" %s: %s\n", strings.ToUpper(session.ContentScan), finding.Description)
+				//		sess.Out.Info("  Path.......: %s\n", finding.FilePath)
+				//		sess.Out.Info("  Repo.......: %s\n", repo.FullName)
+				//		sess.Out.Info("  Message....: %s\n", TruncateString(finding.CommitMessage, 100))
+				//		sess.Out.Info("  Author.....: %s\n", finding.CommitAuthor)
+				//		sess.Out.Info("  Comment....: %s\n", finding.Comment)
+				//		sess.Out.Info("  File URL...: %s\n", finding.FileURL)
+				//		sess.Out.Info("  Commit URL.: %s\n", finding.CommitURL)
+				//		sess.Out.Info(" ------------------------------------------------\n\n")
+				//		sess.Stats.IncrementFindings()
+				//	}
+				//}
 			}
 			sess.Stats.IncrementFiles()
 		}

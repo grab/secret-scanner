@@ -14,7 +14,7 @@ type SimpleSignature struct {
 }
 
 // Match checks if given file matches with signature
-func (s SimpleSignature) Match(file MatchFile) bool {
+func (s SimpleSignature) Match(file MatchFile) []*MatchResult {
 	var haystack *string
 	switch s.part {
 	case PartPath:
@@ -26,10 +26,22 @@ func (s SimpleSignature) Match(file MatchFile) bool {
 	case PartContent:
 		haystack = &file.Content
 	default:
-		return false
+		return nil
 	}
 
-	return (s.match == *haystack)
+	var matchResults []*MatchResult
+
+	if s.match == *haystack {
+		matchResults = append(matchResults, &MatchResult{
+			Filename:    file.Filename,
+			Path:        file.Path,
+			Extension:   file.Extension,
+			Line:        0,
+			LineContent: "",
+		})
+	}
+
+	return matchResults
 }
 
 // Description returns signature description
