@@ -21,12 +21,40 @@ type BitbucketProvider struct {
 
 // Initialize creates and assigns new client
 func (g *BitbucketProvider) Initialize(baseURL, token string, additionalParams map[string]string) error {
-	bb, err := bitbucket.NewClient(baseURL, http.DefaultClient)
+	if !g.ValidateAdditionalParams(additionalParams) {
+		return ErrInvalidAdditionalParams
+	}
+
+	var bb *bitbucket.Bitbucket
+	var err error
+	g.AdditionalParams = additionalParams
+
+	if g.AdditionalParams["bitbucket_client_id"] != "" &&
+		g.AdditionalParams["bitbucket_client_secret"] != "" &&
+		g.AdditionalParams["bitbucket_username"] != "" &&
+		g.AdditionalParams["bitbucket_password"] != "" {
+
+		bb, err = bitbucket.NewOauth2Client(
+			g.AdditionalParams["bitbucket_client_id"],
+			g.AdditionalParams["bitbucket_client_secret"],
+			g.AdditionalParams["bitbucket_username"],
+			g.AdditionalParams["bitbucket_password"],
+			http.DefaultClient,
+			nil)
+		if err != nil {
+			return err
+		}
+
+		g.Client = bb
+
+		return nil
+	}
+
+	bb, err = bitbucket.NewClient(baseURL, http.DefaultClient)
 	if err != nil {
 		return err
 	}
 	g.Client = bb
-	g.AdditionalParams = additionalParams
 
 	return nil
 }

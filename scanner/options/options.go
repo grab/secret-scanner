@@ -10,12 +10,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
-	"path"
 	"strings"
-
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
-
-	"github.com/mitchellh/go-homedir"
 
 	"github.com/joho/godotenv"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
@@ -23,29 +18,24 @@ import (
 
 // Options ...
 type Options struct {
+	BaseURL          *string
 	CommitDepth      *int
-	Threads          *int
-	Report           *string `json:"-"`
-	Load             *string `json:"-"`
-	Silent           *bool
 	Debug            *bool
+	EnvFilePath      *string
+	GitProvider      *string
+	GitScanPath      *string
+	Load             *string `json:"-"`
+	LogSecret        *bool
+	RepoID           *string
+	Report           *string `json:"-"`
+	Repos            *string
+	ScanTarget       *string
+	Silent           *bool
 	SkipTestContexts *bool
 	State            *bool
-	LogSecret        *bool
-
-	GitProvider *string
-	BaseURL     *string
-	Token       *string
-	//ClientID           *string
-	//ClientSecret       *string
-	//UserID             *string
-	//UserPW             *string
-	EnvFilePath *string
-	RepoID      *string
-	ScanTarget  *string
-	Repos       *string
-	GitScanPath *string
-	UI          *bool
+	Threads          *int
+	Token            *string
+	UI               *bool
 }
 
 // ValidateOptions validates given options
@@ -145,68 +135,21 @@ func Parse() (Options, error) {
 		Load:             flag.String("load", "", "Load session file"),
 		Silent:           flag.Bool("silent", false, "Suppress all output except for errors"),
 		Debug:            flag.Bool("debug", false, "Print debugging information"),
-		SkipTestContexts: flag.Bool("skip-tests", false, "Skips possible test contexts"),
-		State:            flag.Bool("state", true, "If state is off, every scan will be treated as a brand new scan."),
-		LogSecret:        flag.Bool("log-secret", true, "If true, the matched secret will be included in results save file"),
-
-		GitProvider: flag.String("git", "", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
-		BaseURL:     flag.String("baseurl", "", "Specify Git provider base URL"),
-		Token:       flag.String("token", "", "Specify Git provider token"),
-		//ClientID:           flag.String("oauth-id", "", "Specify Bitbucket Oauth2 client ID"),
-		//ClientSecret:       flag.String("oauth-secret", "", "Specify Bitbucket Oauth2 client secret"),
-		//UserID:             flag.String("user-id", "", "Specify Bitbucket username"),
-		//UserPW:             flag.String("user-pw", "", "Specify Bitbucket password"),
-		EnvFilePath: flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
-		RepoID:      flag.String("repo-id", "", "Scan the repository with this ID"),
-		ScanTarget:  flag.String("scan-target", "", "Sub-directory within the repository to scan"),
-		Repos:       flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
-		GitScanPath: flag.String("git-scan-path", "", "Specify the local path to scan"),
-		UI:          flag.Bool("ui", false, "Serves up local UI for scan results if true, defaults to true"),
+		SkipTestContexts: flag.Bool("skip-tests", true, "Skips possible test contexts"),
+		State:            flag.Bool("state", false, "If state is off, every scan will be treated as a brand new scan."),
+		LogSecret:        flag.Bool("log-secret", true, "If true, the matched secret will be included in report file"),
+		GitProvider:      flag.String("git", "github", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
+		BaseURL:          flag.String("baseurl", "", "Specify Git provider base URL"),
+		Token:            flag.String("token", "", "Specify Git provider token"),
+		EnvFilePath:      flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
+		RepoID:           flag.String("repo-id", "", "Scan the repository with this ID"),
+		ScanTarget:       flag.String("scan-target", "", "Sub-directory within the repository to scan"),
+		Repos:            flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
+		GitScanPath:      flag.String("git-scan-path", "", "Specify the local path to scan"),
+		UI:               flag.Bool("ui", false, "Serves up local UI for scan results if true, defaults to true"),
 	}
 
 	flag.Parse()
 
 	return options, nil
-}
-
-func LoadDefaultConfig(filename string) (*Options, error) {
-	userHomeDir, err := homedir.Dir()
-	if err != nil {
-		return nil, err
-	}
-
-	if filename == "" {
-		filename = DefaultConfigFilename
-	}
-
-	cfgDirPath := path.Join(userHomeDir, DefaultLocation)
-	cfgFilePath := path.Join(cfgDirPath, filename)
-
-	if !filehandler.FileExists(cfgFilePath) {
-		return CreateDefaultConfig(), nil
-	}
-	return nil, nil
-}
-
-func CreateDefaultConfig() *Options {
-	return &Options{
-		CommitDepth:      nil,
-		Threads:          nil,
-		Report:           nil,
-		Load:             nil,
-		Silent:           nil,
-		Debug:            nil,
-		SkipTestContexts: nil,
-		State:            nil,
-		LogSecret:        nil,
-		GitProvider:      nil,
-		BaseURL:          nil,
-		Token:            nil,
-		EnvFilePath:      nil,
-		RepoID:           nil,
-		ScanTarget:       nil,
-		Repos:            nil,
-		GitScanPath:      nil,
-		UI:               nil,
-	}
 }

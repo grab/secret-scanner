@@ -45,15 +45,19 @@ func main() {
 	switch *opt.GitProvider {
 	case gitprovider.GithubName:
 		gitProvider = &gitprovider.GithubProvider{}
-
 	case gitprovider.GitlabName:
 		gitProvider = &gitprovider.GitlabProvider{}
-
 	case gitprovider.BitbucketName:
 		gitProvider = &gitprovider.BitbucketProvider{}
-
 	default:
-		fmt.Println("error: invalid Git provider type (Currently supports github, gitlab)")
+		fmt.Println("error: invalid Git provider type (Currently supports github, gitlab, bitbucket)")
+		os.Exit(1)
+	}
+
+	// Initialize Git provider
+	err = gitProvider.Initialize(*opt.BaseURL, *opt.Token, additionalParams)
+	if err != nil {
+		fmt.Println(errors.New(fmt.Sprintf("unable to initialise %s provider", *opt.GitProvider)))
 		os.Exit(1)
 	}
 
@@ -62,13 +66,6 @@ func main() {
 	sess.Initialize(opt)
 	sess.Out.Important("%s Scanning Started at %s\n", strings.Title(*opt.GitProvider), sess.Stats.StartedAt.Format(time.RFC3339))
 	sess.Out.Important("Loaded %d signatures\n", len(sess.Signatures))
-
-	// Initialize Git provider
-	err = gitProvider.Initialize(*sess.Options.BaseURL, *sess.Options.Token, additionalParams)
-	if err != nil {
-		sess.Out.Fatal("%v", err)
-		os.Exit(1)
-	}
 
 	if sess.Stats.Status == "finished" {
 		sess.Out.Important("Loaded session file: %s\n", *sess.Options.Load)
