@@ -85,7 +85,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 				sess.Out.Debug("[THREAD #%d][%s] Fetching the checkpoint.\n", tid, repo.FullName)
 				checkpoint := ""
 
-				if !*sess.Options.NoHistory {
+				if *sess.Options.State {
 					latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
 					if latestHistory != nil {
 						checkpoint = latestHistory.CommitHash
@@ -113,7 +113,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 					return
 				}
 
-				if !*sess.Options.NoHistory {
+				if *sess.Options.State {
 					err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
 					if err != nil {
 						sess.Out.Error("Failed to save scan history: %v", err)
@@ -184,7 +184,7 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 	// Get checkpoint
 	checkpoint := ""
-	if !*sess.Options.NoHistory {
+	if *sess.Options.State {
 		latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
 		if latestHistory != nil {
 			checkpoint = latestHistory.CommitHash
@@ -202,7 +202,7 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 		fmt.Println(err)
 	}
 
-	if !*sess.Options.NoHistory {
+	if *sess.Options.State {
 		err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
 		if err != nil {
 			sess.Out.Error("Failed to save scan history: %v", err)
