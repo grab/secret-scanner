@@ -5,16 +5,9 @@
 
 package options
 
-import "errors"
-
 var (
-	// DefaultLocation is the default secret scanner file location
-	DefaultLocation = ".secretscanner"
-	// DefaultConfigFilename defines the default config filename
-	DefaultConfigFilename = "config.json"
-
-	// ErrRepoOptionConflict defines repo option conflict error
-	ErrRepoOptionConflict = errors.New("error: options repo-id and repo-list are mutually exclusive, please provide either one")
-	// ErrInvalidGitProvider defines missing git provider value error
-	ErrInvalidGitProvider = errors.New("error: option git empty or invalid")
+// DefaultLocation is the default secret scanner file location
+//DefaultLocation = ".secretscanner"
+// DefaultConfigFilename defines the default config filename
+//DefaultConfigFilename = "default.config.json"
 )

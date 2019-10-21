@@ -16,11 +16,10 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/history"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/state"
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
 	gitHandler "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
@@ -33,7 +32,7 @@ var NewlineRegex = regexp.MustCompile(`\r?\n`)
 
 // Scan starts the scanning process
 func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
-	if *sess.Options.GitScanPath != "" {
+	if *sess.Options.LocalPath != "" {
 		LocalGitScan(sess, gitProvider)
 		sess.End()
 		return
@@ -86,7 +85,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 				checkpoint := ""
 
 				if *sess.Options.State {
-					latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
+					latestHistory := sess.StateStore.Get(*sess.Options.GitProvider, repo.ID)
 					if latestHistory != nil {
 						checkpoint = latestHistory.CommitHash
 					}
@@ -114,7 +113,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 				}
 
 				if *sess.Options.State {
-					err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
+					err = sess.StateStore.Save(state.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
 					if err != nil {
 						sess.Out.Error("Failed to save scan history: %v", err)
 					}
@@ -144,31 +143,31 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 	// Gather scan targets
 	targets := sess.Options.ParseScanTargets()
-	targetPaths, err := gitHandler.GatherPaths(*sess.Options.GitScanPath, "master", targets)
+	targetPaths, err := gitHandler.GatherPaths(*sess.Options.LocalPath, "master", targets)
 	if err != nil {
-		sess.Out.Error("Failed to gather target paths for repo: %v", *sess.Options.GitScanPath)
+		sess.Out.Error("Failed to gather target paths for repo: %v", *sess.Options.LocalPath)
 		return
 	}
 
 	targetPathMap := map[string]string{}
 	for _, tp := range targetPaths {
-		stat, err := os.Stat(path.Join(*sess.Options.GitScanPath, tp))
+		stat, err := os.Stat(path.Join(*sess.Options.LocalPath, tp))
 		if err != nil {
 			continue
 		}
 		if stat.IsDir() {
 			continue
 		}
-		targetPathMap[path.Join(*sess.Options.GitScanPath, tp)] = tp
+		targetPathMap[path.Join(*sess.Options.LocalPath, tp)] = tp
 	}
 
-	localID := fmt.Sprintf("%s/%s", strings.Trim(*sess.Options.GitScanPath, "/"), strings.Trim(*sess.Options.ScanTarget, "/"))
+	localID := fmt.Sprintf("%s/%s", strings.Trim(*sess.Options.LocalPath, "/"), strings.Trim(*sess.Options.ScanTarget, "/"))
 
 	repo := &gitprovider.Repository{
 		Owner:         "",
 		ID:            localID,
 		Name:          "",
-		FullName:      *sess.Options.GitScanPath,
+		FullName:      *sess.Options.LocalPath,
 		CloneURL:      "",
 		URL:           "",
 		DefaultBranch: "",
@@ -176,34 +175,34 @@ func LocalGitScan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 		Homepage:      "",
 	}
 
-	gitRepo, err := git.PlainOpen(*sess.Options.GitScanPath)
+	gitRepo, err := git.PlainOpen(*sess.Options.LocalPath)
 	if err != nil {
-		sess.Out.Error("Failed to open directory as git repo: %v", *sess.Options.GitScanPath)
+		sess.Out.Error("Failed to open directory as git repo: %v", *sess.Options.LocalPath)
 		return
 	}
 
 	// Get checkpoint
 	checkpoint := ""
 	if *sess.Options.State {
-		latestHistory := sess.HistoryStore.Get(*sess.Options.GitProvider, repo.ID)
+		latestHistory := sess.StateStore.Get(*sess.Options.GitProvider, repo.ID)
 		if latestHistory != nil {
 			checkpoint = latestHistory.CommitHash
 		}
 	}
 
 	// Scan
-	scanRevisions(sess, repo, gitRepo, checkpoint, *sess.Options.GitScanPath, targetPathMap)
+	scanRevisions(sess, repo, gitRepo, checkpoint, *sess.Options.LocalPath, targetPathMap)
 
 	sess.Stats.IncrementRepositories()
 	sess.Stats.UpdateProgress(sess.Stats.Repositories, len(sess.Repositories))
 
-	latestCommitHash, err := gitHandler.GetLatestCommitHash(*sess.Options.GitScanPath)
+	latestCommitHash, err := gitHandler.GetLatestCommitHash(*sess.Options.LocalPath)
 	if err != nil {
 		fmt.Println(err)
 	}
 
 	if *sess.Options.State {
-		err = sess.HistoryStore.Save(history.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
+		err = sess.StateStore.Save(state.Create(*sess.Options.GitProvider, repo.ID, latestCommitHash, time.Now().String()))
 		if err != nil {
 			sess.Out.Error("Failed to save scan history: %v", err)
 		}
@@ -216,15 +215,7 @@ func gatherRepositories(sess *session.Session, gitProvider gitprovider.GitProvid
 	var repos []*gitprovider.Repository
 
 	if *sess.Options.Repos != "" {
-		//Fetching the repos prodided in repo-list
-		if !filehandler.FileExists(*sess.Options.Repos) {
-			sess.Out.Error(" No such file exists in: %s\n", *sess.Options.Repos)
-		}
-		data, err := ioutil.ReadFile(*sess.Options.Repos)
-		if err != nil {
-			sess.Out.Error("Failed to load the repo list provided: %s\n", err)
-		}
-		ids := strings.Split(string(data), ",")
+		ids := strings.Split(*sess.Options.Repos, ",")
 		for _, id := range ids {
 			opt := map[string]string{}
 			if gitProvider.Name() == gitprovider.GithubName || gitProvider.Name() == gitprovider.BitbucketName {

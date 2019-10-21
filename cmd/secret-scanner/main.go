@@ -27,17 +27,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Validate Options
-	optValid, err := opt.ValidateOptions()
-	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
-	}
-	if !optValid {
-		fmt.Println(errors.New("invalid option(s)"))
-		os.Exit(1)
-	}
-
 	var gitProvider gitprovider.GitProvider
 	additionalParams := map[string]string{}
 
@@ -88,6 +77,6 @@ func main() {
 
 	// Serve UI
 	if *sess.Options.UI {
-		web.InitRouter("127.0.0.1", "8888", sess)
+		web.InitRouter(*sess.Options.UIHost, *sess.Options.UIPort, sess)
 	}
 }

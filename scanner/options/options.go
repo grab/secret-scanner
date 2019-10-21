@@ -7,114 +7,30 @@ package options
 
 import (
 	"flag"
-	"fmt"
-	"net/url"
-	"os"
 	"strings"
-
-	"github.com/joho/godotenv"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 )
 
 // Options ...
 type Options struct {
-	BaseURL          *string
-	CommitDepth      *int
-	Debug            *bool
-	EnvFilePath      *string
-	GitProvider      *string
-	GitScanPath      *string
+	BaseURL          *string `json:"base_url"`
+	CommitDepth      *int    `json:"commit_depth"`
+	Debug            *bool   `json:"debug"`
+	EnvFilePath      *string `json:"env_file_path"`
+	GitProvider      *string `json:"git_provider"`
 	Load             *string `json:"-"`
-	LogSecret        *bool
-	RepoID           *string
+	LocalPath        *string `json:"local_path"`
+	LogSecret        *bool   `json:"log_secret"`
 	Report           *string `json:"-"`
-	Repos            *string
-	ScanTarget       *string
-	Silent           *bool
-	SkipTestContexts *bool
-	State            *bool
-	Threads          *int
-	Token            *string
-	UI               *bool
-}
-
-// ValidateOptions validates given options
-func (o Options) ValidateOptions() (bool, error) {
-	if *o.RepoID != "" && *o.Repos != "" {
-		return false, ErrRepoOptionConflict
-	}
-	if *o.EnvFilePath != "" {
-		if _, err := os.Stat(*o.EnvFilePath); os.IsNotExist(err) {
-			return false, err
-		}
-	}
-
-	// Load env file if present
-	if *o.EnvFilePath != "" {
-		err := godotenv.Load(*o.EnvFilePath)
-		if err != nil {
-			fmt.Println(fmt.Sprintf("error: unable to load .env file path %s: %v", *o.EnvFilePath, err))
-			os.Exit(1)
-		}
-	}
-
-	if *o.GitProvider != gitprovider.GithubName && *o.GitProvider != gitprovider.GitlabName && *o.GitProvider != gitprovider.BitbucketName {
-		return false, ErrInvalidGitProvider
-	}
-
-	switch *o.GitProvider {
-	case gitprovider.GithubName:
-		return o.ValidateGithubOptions(), nil
-	case gitprovider.GitlabName:
-		return o.ValidateGitlabOptions(), nil
-	case gitprovider.BitbucketName:
-		return o.ValidateBitbucketOptions(), nil
-	default:
-		return false, ErrInvalidGitProvider
-	}
-}
-
-// ValidateGithubOptions validates Github options,
-// applied when GitProvider == github
-func (o Options) ValidateGithubOptions() bool {
-	return true
-}
-
-// ValidateGitlabOptions validates Gitlab options
-// applied when GitProvider == gitlab
-func (o Options) ValidateGitlabOptions() bool {
-	if o.BaseURL == nil {
-		return false
-	}
-
-	baseURL := *o.BaseURL
-	if baseURL == "" {
-		baseURL = os.Getenv("GITLAB_BASE_URL")
-		*o.BaseURL = baseURL
-	}
-	_, err := url.ParseRequestURI(baseURL)
-	if err != nil {
-		return false
-	}
-	return o.ValidateHasToken("GITLAB_TOKEN")
-}
-
-// ValidateBitbucketOptions validates Bitbucket options
-// applied when GitProvider == bitbucket
-func (o Options) ValidateBitbucketOptions() bool {
-	return true
-}
-
-// ValidateHasToken validates that token is not empty
-func (o *Options) ValidateHasToken(key string) bool {
-	if *o.Token == "" {
-		if os.Getenv(key) == "" {
-			return false
-		}
-		//token := os.Getenv(key)
-		*o.Token = os.Getenv(key)
-	}
-	return true
+	Repos            *string `json:"repos"`
+	ScanTarget       *string `json:"scan_target"`
+	Silent           *bool   `json:"silent"`
+	SkipTestContexts *bool   `json:"skip_test_contexts"`
+	State            *bool   `json:"state"`
+	Threads          *int    `json:"threads"`
+	Token            *string `json:"token"`
+	UI               *bool   `json:"ui"`
+	UIHost           *string `json:"ui_host"`
+	UIPort           *string `json:"ui_port"`
 }
 
 // ParseScanTargets splits string of targets by comma
@@ -126,27 +42,61 @@ func (o Options) ParseScanTargets() []string {
 	return targets
 }
 
+// GetOptionsFromFile get options from JSON config file
+//func GetOptionsFromFile(pathToFile string) (opt *Options, err error) {
+//	if pathToFile == "" {
+//		userHomeDir, err := homedir.Dir()
+//		if err != nil {
+//			return nil, err
+//		}
+//		pathToFile = path.Join(userHomeDir, DefaultLocation, DefaultConfigFilename)
+//	}
+//	if !path.IsAbs(pathToFile) {
+//		pathToFile, err = filepath.Abs(pathToFile)
+//		if err != nil {
+//			return nil, err
+//		}
+//	}
+//	if filehandler.FileExists(pathToFile) {
+//		jsonBytes, err := ioutil.ReadFile(pathToFile)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		opt := &Options{}
+//		err = json.Unmarshal(jsonBytes, opt)
+//		if err != nil {
+//			return nil, err
+//		}
+//
+//		return opt, err
+//	}
+//
+//	return nil, errors.New(fmt.Sprintf("file %s does not exists", pathToFile))
+//}
+
 // Parse parses cmd params
 func Parse() (Options, error) {
 	options := Options{
+		BaseURL:          flag.String("baseurl", "", "Specify Git provider base URL"),
 		CommitDepth:      flag.Int("commit-depth", 500, "Number of repository commits to process"),
-		Threads:          flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
-		Report:           flag.String("report", "", "Save session to file"),
-		Load:             flag.String("load", "", "Load session file"),
-		Silent:           flag.Bool("silent", false, "Suppress all output except for errors"),
 		Debug:            flag.Bool("debug", false, "Print debugging information"),
+		EnvFilePath:      flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
+		GitProvider:      flag.String("git", "github", "Name of git provider (Eg. github, gitlab, bitbucket)"),
+		Load:             flag.String("load", "", "Load session file"),
+		LocalPath:        flag.String("local", "", "Specify the local git repo path to scan"),
+		LogSecret:        flag.Bool("log-secret", true, "If true, the matched secret will be included in report file"),
+		Report:           flag.String("report", "", "Save session to file"),
+		Repos:            flag.String("repos", "", "Comma-separated list of repos to scan"),
+		ScanTarget:       flag.String("scan-target", "", "Sub-directory within the repository to scan"),
+		Silent:           flag.Bool("silent", false, "Suppress all output except for errors"),
 		SkipTestContexts: flag.Bool("skip-tests", true, "Skips possible test contexts"),
 		State:            flag.Bool("state", false, "If state is off, every scan will be treated as a brand new scan."),
-		LogSecret:        flag.Bool("log-secret", true, "If true, the matched secret will be included in report file"),
-		GitProvider:      flag.String("git", "github", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
-		BaseURL:          flag.String("baseurl", "", "Specify Git provider base URL"),
+		Threads:          flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
 		Token:            flag.String("token", "", "Specify Git provider token"),
-		EnvFilePath:      flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
-		RepoID:           flag.String("repo-id", "", "Scan the repository with this ID"),
-		ScanTarget:       flag.String("scan-target", "", "Sub-directory within the repository to scan"),
-		Repos:            flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
-		GitScanPath:      flag.String("git-scan-path", "", "Specify the local path to scan"),
-		UI:               flag.Bool("ui", false, "Serves up local UI for scan results if true, defaults to true"),
+		UI:               flag.Bool("ui", false, "Serves up local UI for scan results if true"),
+		UIHost:           flag.String("ui-host", "127.0.0.1", "UI server host"),
+		UIPort:           flag.String("ui-port", "8080", "UI server port"),
 	}
 
 	flag.Parse()
