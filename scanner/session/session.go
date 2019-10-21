@@ -44,7 +44,7 @@ type Session struct {
 // Initialize inits a scan session
 func (s *Session) Initialize(options options.Options) {
 	s.Options = options
-	s.InitHistoryStoreOrFail(*options.HistoryStoreFilePath)
+	s.InitHistoryStoreOrFail("")
 	s.InitLogger()
 	s.InitStats()
 	s.InitThreads()
