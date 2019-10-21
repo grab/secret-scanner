@@ -10,7 +10,12 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"path"
 	"strings"
+
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
+
+	"github.com/mitchellh/go-homedir"
 
 	"github.com/joho/godotenv"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
@@ -20,7 +25,7 @@ import (
 type Options struct {
 	CommitDepth      *int
 	Threads          *int
-	Save             *string `json:"-"`
+	Report           *string `json:"-"`
 	Load             *string `json:"-"`
 	Silent           *bool
 	Debug            *bool
@@ -137,7 +142,7 @@ func Parse() (Options, error) {
 	options := Options{
 		CommitDepth:      flag.Int("commit-depth", 500, "Number of repository commits to process"),
 		Threads:          flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
-		Save:             flag.String("save", "", "Save session to file"),
+		Report:           flag.String("report", "", "Save session to file"),
 		Load:             flag.String("load", "", "Load session file"),
 		Silent:           flag.Bool("silent", false, "Suppress all output except for errors"),
 		Debug:            flag.Bool("debug", false, "Print debugging information"),
@@ -164,4 +169,47 @@ func Parse() (Options, error) {
 	flag.Parse()
 
 	return options, nil
+}
+
+func LoadDefaultConfig(filename string) (*Options, error) {
+	userHomeDir, err := homedir.Dir()
+	if err != nil {
+		return nil, err
+	}
+
+	if filename == "" {
+		filename = DefaultConfigFilename
+	}
+
+	cfgDirPath := path.Join(userHomeDir, DefaultLocation)
+	cfgFilePath := path.Join(cfgDirPath, filename)
+
+	if !filehandler.FileExists(cfgFilePath) {
+		return CreateDefaultConfig(), nil
+	}
+	return nil, nil
+}
+
+func CreateDefaultConfig() *Options {
+	return &Options{
+		CommitDepth:          nil,
+		Threads:              nil,
+		Report:               nil,
+		Load:                 nil,
+		Silent:               nil,
+		Debug:                nil,
+		SkipTestContexts:     nil,
+		NoHistory:            nil,
+		LogSecret:            nil,
+		GitProvider:          nil,
+		BaseURL:              nil,
+		Token:                nil,
+		EnvFilePath:          nil,
+		HistoryStoreFilePath: nil,
+		RepoID:               nil,
+		ScanTarget:           nil,
+		Repos:                nil,
+		GitScanPath:          nil,
+		UI:                   nil,
+	}
 }

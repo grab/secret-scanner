@@ -180,8 +180,8 @@ func ValidateNewSession(session *Session) error {
 	//   return err
 	// }
 
-	if *session.Options.Save != "" && filehandler.FileExists(*session.Options.Save) {
-		return fmt.Errorf("file: %s already exists", *session.Options.Save)
+	if *session.Options.Report != "" && filehandler.FileExists(*session.Options.Report) {
+		return fmt.Errorf("file: %s already exists", *session.Options.Report)
 	}
 
 	if *session.Options.Load != "" {

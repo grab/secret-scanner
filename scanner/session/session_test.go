@@ -24,7 +24,7 @@ import (
 var defaultOptions = options.Options{
 	CommitDepth:          flag.Int("commit-depth", 500, "Number of repository commits to process"),
 	Threads:              flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
-	Save:                 flag.String("save", "", "Save session to file"),
+	Report:               flag.String("save", "", "Save session to file"),
 	Load:                 flag.String("load", "", "Load session file"),
 	Silent:               flag.Bool("silent", false, "Suppress all output except for errors"),
 	Debug:                flag.Bool("debug", false, "Print debugging information"),
