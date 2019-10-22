@@ -6,7 +6,7 @@
 package findings
 
 import (
-	"crypto/sha1"
+	"crypto/sha256"
 	"fmt"
 	"io"
 )
@@ -39,7 +39,7 @@ type Finding struct {
 // GenerateHashID generates an unique hash
 func (f *Finding) GenerateHashID() (hash string, err error) {
 	// Used for dedupe in defect dojo
-	h := sha1.New()
+	h := sha256.New()
 	str := fmt.Sprintf("%s%s%s", f.FileURL, f.Action, f.Description)
 
 	_, err = io.WriteString(h, str)

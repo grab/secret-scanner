@@ -84,6 +84,15 @@ func (g *GithubProvider) GetRepository(opt map[string]string) (*Repository, erro
 	}, nil
 }
 
+// GetAdditionalParams validates additional params
+func (g *GithubProvider) GetAdditionalParam(key string) string {
+	val, exists := g.AdditionalParams[key]
+	if !exists {
+		return ""
+	}
+	return val
+}
+
 // ValidateAdditionalParams validates additional params
 func (g *GithubProvider) ValidateAdditionalParams(additionalParams map[string]string) bool {
 	return true

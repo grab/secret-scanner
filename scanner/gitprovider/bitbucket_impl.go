@@ -29,16 +29,16 @@ func (g *BitbucketProvider) Initialize(baseURL, token string, additionalParams m
 	var err error
 	g.AdditionalParams = additionalParams
 
-	if g.AdditionalParams["bitbucket_client_id"] != "" &&
-		g.AdditionalParams["bitbucket_client_secret"] != "" &&
-		g.AdditionalParams["bitbucket_username"] != "" &&
-		g.AdditionalParams["bitbucket_password"] != "" {
+	if g.AdditionalParams[BitbucketParamClientID] != "" &&
+		g.AdditionalParams[BitbucketParamClientSecret] != "" &&
+		g.AdditionalParams[BitbucketParamUsername] != "" &&
+		g.AdditionalParams[BitbucketParamPassword] != "" {
 
 		bb, err = bitbucket.NewOauth2Client(
-			g.AdditionalParams["bitbucket_client_id"],
-			g.AdditionalParams["bitbucket_client_secret"],
-			g.AdditionalParams["bitbucket_username"],
-			g.AdditionalParams["bitbucket_password"],
+			g.AdditionalParams[BitbucketParamClientID],
+			g.AdditionalParams[BitbucketParamClientSecret],
+			g.AdditionalParams[BitbucketParamUsername],
+			g.AdditionalParams[BitbucketParamPassword],
 			http.DefaultClient,
 			nil)
 		if err != nil {
@@ -71,7 +71,7 @@ func (g *BitbucketProvider) GetRepository(opt map[string]string) (*Repository, e
 		return nil, errors.New("repoSlug option must exist in map")
 	}
 
-	repo, err := g.Client.UserRepository(username, repoSlug, http.DefaultClient)
+	repo, err := g.Client.UserRepository(username, repoSlug)
 	if err != nil {
 		return nil, err
 	}
@@ -87,6 +87,15 @@ func (g *BitbucketProvider) GetRepository(opt map[string]string) (*Repository, e
 		Description:   repo.Description,
 		Homepage:      repo.Links.HTML.Href,
 	}, nil
+}
+
+// GetAdditionalParams validates additional params
+func (g *BitbucketProvider) GetAdditionalParam(key string) string {
+	val, exists := g.AdditionalParams[key]
+	if !exists {
+		return ""
+	}
+	return val
 }
 
 // ValidateAdditionalParams validates additional params

@@ -28,9 +28,12 @@ func (g *GitlabProvider) Initialize(baseURL, token string, additionalParams map[
 	g.Token = token
 	g.AdditionalParams = additionalParams
 	g.Client = gitlab.NewClient(nil, token)
-	err := g.Client.SetBaseURL(baseURL)
-	if err != nil {
-		return err
+
+	if baseURL != "" {
+		err := g.Client.SetBaseURL(baseURL)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -59,6 +62,15 @@ func (g *GitlabProvider) GetRepository(opt map[string]string) (*Repository, erro
 		Owner:         "",
 	}
 	return repo, nil
+}
+
+// GetAdditionalParams validates additional params
+func (g *GitlabProvider) GetAdditionalParam(key string) string {
+	val, exists := g.AdditionalParams[key]
+	if !exists {
+		return ""
+	}
+	return val
 }
 
 // ValidateAdditionalParams validates additional params

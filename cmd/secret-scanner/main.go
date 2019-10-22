@@ -9,8 +9,11 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path"
 	"strings"
 	"time"
+
+	"github.com/joho/godotenv"
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/web"
 
@@ -21,11 +24,15 @@ import (
 )
 
 func main() {
+	// Parse CLI options
 	opt, err := options.Parse()
 	if err != nil {
 		fmt.Println(err)
 		os.Exit(1)
 	}
+
+	// Load env file
+	loadEnv(*opt.EnvFilePath)
 
 	var gitProvider gitprovider.GitProvider
 	additionalParams := map[string]string{}
@@ -34,10 +41,29 @@ func main() {
 	switch *opt.GitProvider {
 	case gitprovider.GithubName:
 		gitProvider = &gitprovider.GithubProvider{}
+		if *opt.BaseURL == "" {
+			*opt.BaseURL = os.Getenv(gitprovider.GithubParamBaseURL)
+		}
+		if *opt.Token == "" {
+			*opt.Token = os.Getenv(gitprovider.GithubParamToken)
+		}
 	case gitprovider.GitlabName:
 		gitProvider = &gitprovider.GitlabProvider{}
+		if *opt.BaseURL == "" {
+			*opt.BaseURL = os.Getenv(gitprovider.GitlabParamBaseURL)
+		}
+		if *opt.Token == "" {
+			*opt.Token = os.Getenv(gitprovider.GitlabParamToken)
+		}
 	case gitprovider.BitbucketName:
 		gitProvider = &gitprovider.BitbucketProvider{}
+		if *opt.BaseURL == "" {
+			*opt.BaseURL = os.Getenv(gitprovider.BitbucketParamBaseURL)
+		}
+		additionalParams[gitprovider.BitbucketParamClientID] = os.Getenv(gitprovider.BitbucketParamClientID)
+		additionalParams[gitprovider.BitbucketParamClientSecret] = os.Getenv(gitprovider.BitbucketParamClientSecret)
+		additionalParams[gitprovider.BitbucketParamUsername] = os.Getenv(gitprovider.BitbucketParamUsername)
+		additionalParams[gitprovider.BitbucketParamPassword] = os.Getenv(gitprovider.BitbucketParamPassword)
 	default:
 		fmt.Println("error: invalid Git provider type (Currently supports github, gitlab, bitbucket)")
 		os.Exit(1)
@@ -78,5 +104,28 @@ func main() {
 	// Serve UI
 	if *sess.Options.UI {
 		web.InitRouter(*sess.Options.UIHost, *sess.Options.UIPort, sess)
+	}
+}
+
+func loadEnv(envPath string) {
+	if envPath != "" {
+		err := godotenv.Load(envPath)
+		if err != nil {
+			fmt.Println(fmt.Sprintf("%v, seaching in work directory instead", err))
+		} else {
+			return
+		}
+	}
+
+	currentWD, err := os.Getwd()
+	if err != nil {
+		fmt.Println(fmt.Sprintf("error getting work directory"))
+		return
+	}
+
+	envPath = path.Join(currentWD, ".env")
+	err = godotenv.Load(envPath)
+	if err != nil {
+		fmt.Println(err)
 	}
 }

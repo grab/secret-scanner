@@ -8,22 +8,16 @@ The tool is based on <a href="https://github.com/michenriksen/gitrob">Gitrob</a>
 
 ## Setup
 
-The use of this tool requires you to set various Git provider (Github / Gitlab / Bitbucket) options such as API base URL, tokens, etc in your environment if you would like to scan your own private repositories.
+## Auth Tokens
+
+The use of this tool requires you to set various Git provider (Github / Gitlab / Bitbucket) authentication token in your environment.
 
 You can do so by:
 ```
-export GITHUB_BASE_URL=https://api.github.com; GITHUB_TOKEN=my-token
+export GITHUB_TOKEN=my-token; secret-scanner -repos jquery/jquery
 ```
 
-Alternatively, you can add them into your `.bash_profile` or create a `.env` file. See `.env.example`.
-
-You can also provide them as tool flag options. See **Usage** section
-
-The precedence of usage is as follows from highest to lowest:
-1. Command flag options
-2. .env file
-3. CLI exported
-4. Values from .bash_profile
+To persist the various Git provider tokens, you can add them into your `.bash_profile` or create a `.env` file. See `.env.example`.
 
 ### Skip Files
 
@@ -31,134 +25,155 @@ You can define paths to be excluded from scanning by defining them in a comma se
 
 `SKIP_EXT` defines the file extensions to be excluded
 `SKIP_PATHS` defines the paths/files to be excluded if the path matches one of the patterns defined in the list
-`SKIP_TEST_PATHS` defines any test directories/files that you would like to skip. It is being kept separately from `SKIP_PATHS` because sometimes it may be useful to scan the test files as well. You can toggle to scan test files by giving `-skip-test=false` in the CLI.
+`SKIP_TEST_PATHS` defines any test directories/files that you would like to skip. It is being kept separately from `SKIP_PATHS` because sometimes it may be useful to scan the test files as well. You can toggle to scan test files by giving `-skip-tests=false` in the CLI.
 
 ## Usage
 
-For `bool` cmd-line flags, use `=` between key-val pair. Eg `-ui=false`
+For `bool` CLI flags, use `=` between key-val pair. Eg `-ui=false`
 
 ### Basic
 
+The most basic usage requires a list of Github repository identifiers in the form of `org/repo`.
+
 ```
-./secret-scanner -git github -env .env -repo-list repo.csv
-./secret-scanner -git bitbucket -env .env -repo-list repo.csv
-./secret-scanner -git gitlab -baseurl https://mygitlab.com -token mysecret-token -repo-list repo.csv
+./secret-scanner -repos jquery/jquery
+```
+
+To scan repositories in other Git providers, simply specify the Git provider name.
+
+For Gitlab, provide the project ID instead of `org/repo`.
+
+```
+./secret-scanner -git bitbucket -repos litmis/mama
+./secret-scanner -git gitlab -repos 3836952
+```
+
+You can scan multiple repositories from the same Git provider by providing multiple identifiers separated by commas.
+
+```
+./secret-scanner -repos jquery/jquery,lodash/lodash
 ```
 
 ### Local Scan
 
 By default, the tool will attempt to make a local clone before scanning the files.
 
-If you already have a copy of the files on local disk, you can do a local scan by specifying the `git-scan-path` parameter.
+If you already have a copy of the repository on local disk, you can do a local scan by specifying the `local` parameter.
 
 ```
-./secret-scanner -git github -git-scan-path /path/to/local/repository
+./secret-scanner -local /path/to/local/repository
 ```
 
 ### Sub-directory Scan
 
-In instances where a repository contains multiple projects (i.e monorepo), you can specify which project to scan by providing `scan-target`, the project directory path name relative to repository root.
+In instances where a repository contains multiple projects (i.e monorepo), or you simply want to scan specific sub-directory, you can do so by providing `scan-target`.
 
 Example:
 https://github.com/user/awesome-projects contains
-- dir1/
-- dir2/
-- dir3/
+- build/
+- dist/
+- src/
+- test/
+- ...
 
-To scan `dir1`:
+Caveat: Only works with single `repos`
+
+To scan `src` only:
 ```
-./secret-scanner -git github -env .env -repo-list repo.csv -git-scan-path /path/to/awesome-projects -scan-target dir1
+./secret-scanner -repos jquery/jquery -scan-target src
 ```
 
 ## Report
 
-By default, findings found during the scan will be printed as console output. You can save it as JSON by specifying the `save` param
+By default, findings found during the scan will be printed as console output. You can save it as JSON to path by specifying the `report` param
 
 ```
-./secret-scanner -git github -env .env -repo-list repo.csv -save ./report.json
+./secret-scanner -repos jquery/jquery -report ~/report.json
 ```
 
-## Scan History
+The report file will contain the lines containing the potential secrets. In circumstances where you do not want to expose them, you can specify `-log-secret=false`
 
-By default, no scan history is being kept, meaning every scan on the same repository will start afresh.
+## Scan State
 
-If scan history is enabled, the scanner will save the latest scan session and commit hash in JSON format. From the next scan onwards for the same repository,the scanner will only scan changes since the last saved commit hash.
+By default, no scan state is being kept, meaning every scan on the same repository will start afresh.
 
-The default location of scan history JSON file is in `~/.secret-scanner/`. You can define the place you want to store the history by giving `-history my/custom/path/to/history` in the CLI
+If scan state is enabled, the scanner will save the latest scan session and commit hash in JSON format. From the next scan onwards for the same repository,the scanner will only scan changes since the last saved commit hash.
+
+The default location of scan state JSON file is in `~/.secret-scanner/`.
 
 ```
-./secret-scanner -git github -env .env -repo-list repo.csv -save ./report.json -no-history=false -history my/custom/path/to/history
+./secret-scanner -repos jquery/jquery -state=true
 ```
 
 ### Web UI
 
-By default, the after the scan is completed, a local web server will be spun up containing the findings in a nice UI.
+You can spin up a local web server to help visualise the findings in a nice UI.
 
-You can turn it off by specifying `ui` to false.
+UI server host and port defaults to `127.0.0.1` and `8080` respectively. You can change that by specifying `ui-host` and `ui-port`.
 
 ```
-./secret-scanner -git github -env .env -repo-list repo.csv -save ./report.json -ui false
+./secret-scanner -repos jquery/jquery -ui true -ui-host 192.168.0.100 -ui-host 8089
 ```
 
 ## CLI Args
 
 ```
--baseurl string
-     Specify Git provider base URL
+  -baseurl string
+        Specify Git provider base URL
 
--commit-depth int
-    Number of repository commits to process (default 500)
+  -commit-depth int
+        Number of repository commits to process (default 500)
 
--debug bool
-    Print debugging information
+  -debug
+        Print debugging information
 
--env string
-    .env file path containing Git provider base URLs and tokens
+  -env string
+        .env file path containing Git provider base URLs and tokens
 
--git string
-    Specify type of git provider (Eg. github, gitlab, bitbucket)
+  -git string
+        Name of git provider (Eg. github, gitlab, bitbucket) (default "github")
 
--git-scan-path string
-    Specify the local path to scan
+  -load string
+        Load session file
 
--history string
-    File path to store scan histories
+  -local string
+        Specify the local git repo path to scan
 
--load string
-    Load session file
+  -log-secret
+        If true, the matched secret will be included in report file (default true)
 
--log-secret bool
-    If true, the matched secret will be included in results save file (default true)
+  -report string
+        Save session to file
 
--no-history bool
-    If no-history is on, every scan will be treated as a brand new scan. (default true)
+  -repos string
+        Comma-separated list of repos to scan
 
--repo-id string
-    Scan the repository with this ID
+  -scan-target string
+        Sub-directory within the repository to scan
 
--repo-list string
-    CSV file containing the list of whitelisted repositories to scan
+  -silent
+        Suppress all output except for errors
 
--save string
-    Save session to file
+  -skip-tests
+        Skips possible test contexts (default true)
 
--scan-target string
-    Sub-directory within the repository to scan
+  -state
+        If state is off, every scan will be treated as a brand new scan.
 
--silent bool
-    Suppress all output except for errors
+  -threads int
+        Number of concurrent threads (default number of logical CPUs)
 
--skip-tests bool
-     Skips possible test contexts
+  -token string
+        Specify Git provider token
 
--threads int
-    Number of concurrent threads (default number of logical CPUs)
+  -ui
+        Serves up local UI for scan results if true
 
--token string
-    Specify VCS token
+  -ui-host string
+        UI server host (default "127.0.0.1")
 
--ui bool
-    Serves up local UI for scan results if true, (default true)
+  -ui-port string
+        UI server port (default "8080")
 ```
 
 ## Credits

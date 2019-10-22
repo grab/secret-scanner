@@ -16,6 +16,9 @@ import (
 	"sync"
 	"time"
 
+	"gopkg.in/src-d/go-git.v4/plumbing/transport"
+	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
+
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/state"
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
@@ -53,8 +56,26 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	}
 	wg.Add(threadNum)
 	sess.Out.Debug("Threads for repository analysis: %d\n", threadNum)
-
 	sess.Out.Important("Analyzing %d %s...\n", len(sess.Repositories), Pluralize(len(sess.Repositories), "repository", "repositories"))
+
+	var authMethod transport.AuthMethod
+	switch *sess.Options.GitProvider {
+	case gitprovider.GithubName:
+		authMethod = &http.BasicAuth{
+			Username: "secretscanner",
+			Password: *sess.Options.Token,
+		}
+	case gitprovider.GitlabName:
+		authMethod = &http.BasicAuth{
+			Username: "secretscanner",
+			Password: *sess.Options.Token,
+		}
+	case gitprovider.BitbucketName:
+		authMethod = &http.BasicAuth{
+			Username: gitProvider.GetAdditionalParam(gitprovider.BitbucketParamUsername),
+			Password: gitProvider.GetAdditionalParam(gitprovider.BitbucketParamPassword),
+		}
+	}
 
 	for i := 0; i < threadNum; i++ {
 		go func(tid int) {
@@ -69,7 +90,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 
 				// Clone repo
 				sess.Out.Debug("[THREAD #%d][%s] Cloning repository...\n", tid, repo.FullName)
-				clone, cloneDir, err := gitHandler.CloneRepository(&repo.CloneURL, &repo.DefaultBranch, *sess.Options.CommitDepth)
+				clone, cloneDir, err := gitHandler.CloneRepository(&repo.CloneURL, &repo.DefaultBranch, *sess.Options.CommitDepth, authMethod)
 				if err != nil {
 					if err.Error() != "Remote repository is empty" {
 						sess.Out.Error("Error cloning repository %s: %s\n", repo.FullName, err)
