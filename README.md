@@ -105,16 +105,6 @@ The default location of scan state JSON file is in `~/.secret-scanner/`.
 ./secret-scanner -repos jquery/jquery -use-state=true
 ```
 
-### Web UI
-
-You can spin up a local web server to help visualise the findings in a nice UI.
-
-UI server host and port defaults to `127.0.0.1` and `8080` respectively. You can change that by specifying `ui-host` and `ui-port`.
-
-```
-./secret-scanner -repos jquery/jquery -ui true -ui-host 192.168.0.100 -ui-host 8089
-```
-
 ## CLI Args
 
 ```
@@ -165,15 +155,6 @@ UI server host and port defaults to `127.0.0.1` and `8080` respectively. You can
 
   -token string
         Specify Git provider token
-
-  -ui
-        Serves up local UI for scan results if true
-
-  -ui-host string
-        UI server host (default "127.0.0.1")
-
-  -ui-port string
-        UI server port (default "8080")
 ```
 
 ## Credits

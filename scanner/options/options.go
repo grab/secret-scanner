@@ -42,39 +42,6 @@ func (o Options) ParseScanTargets() []string {
 	return targets
 }
 
-// GetOptionsFromFile get options from JSON config file
-//func GetOptionsFromFile(pathToFile string) (opt *Options, err error) {
-//	if pathToFile == "" {
-//		userHomeDir, err := homedir.Dir()
-//		if err != nil {
-//			return nil, err
-//		}
-//		pathToFile = path.Join(userHomeDir, DefaultLocation, DefaultConfigFilename)
-//	}
-//	if !path.IsAbs(pathToFile) {
-//		pathToFile, err = filepath.Abs(pathToFile)
-//		if err != nil {
-//			return nil, err
-//		}
-//	}
-//	if filehandler.FileExists(pathToFile) {
-//		jsonBytes, err := ioutil.ReadFile(pathToFile)
-//		if err != nil {
-//			return nil, err
-//		}
-//
-//		opt := &Options{}
-//		err = json.Unmarshal(jsonBytes, opt)
-//		if err != nil {
-//			return nil, err
-//		}
-//
-//		return opt, err
-//	}
-//
-//	return nil, errors.New(fmt.Sprintf("file %s does not exists", pathToFile))
-//}
-
 // Parse parses cmd params
 func Parse() (Options, error) {
 	options := Options{
@@ -94,9 +61,9 @@ func Parse() (Options, error) {
 		State:            flag.Bool("use-state", false, "If state is off, every scan will be treated as a brand new scan."),
 		Threads:          flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
 		Token:            flag.String("token", "", "Specify Git provider token"),
-		UI:               flag.Bool("ui", false, "Serves up local UI for scan results if true"),
-		UIHost:           flag.String("ui-host", "127.0.0.1", "UI server host"),
-		UIPort:           flag.String("ui-port", "8080", "UI server port"),
+		//UI:               flag.Bool("ui", false, "Serves up local UI for scan results if true"),
+		//UIHost:           flag.String("ui-host", "127.0.0.1", "UI server host"),
+		//UIPort:           flag.String("ui-port", "8080", "UI server port"),
 	}
 
 	flag.Parse()

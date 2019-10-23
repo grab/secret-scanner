@@ -15,8 +15,6 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/web"
-
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
@@ -100,11 +98,6 @@ func main() {
 	}
 
 	sess.Stats.PrintStats(sess.Out)
-
-	// Serve UI
-	if *sess.Options.UI {
-		web.InitRouter(*sess.Options.UIHost, *sess.Options.UIPort, sess)
-	}
 }
 
 func loadEnv(envPath string) {
