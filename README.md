@@ -66,7 +66,7 @@ If you already have a copy of the repository on local disk, you can do a local s
 
 ### Sub-directory Scan
 
-In instances where a repository contains multiple projects (i.e monorepo), or you simply want to scan specific sub-directory, you can do so by providing `scan-target`.
+In instances where a repository contains multiple projects (i.e monorepo), or you simply want to scan specific sub-directory, you can do so by providing `sub-dir`.
 
 Example:
 https://github.com/user/awesome-projects contains
@@ -80,7 +80,7 @@ Caveat: Only works with single `repos`
 
 To scan `src` only:
 ```
-./secret-scanner -repos jquery/jquery -scan-target src
+./secret-scanner -repos jquery/jquery -sub-dir src
 ```
 
 ## Scan Results as Output
@@ -148,7 +148,7 @@ UI server host and port defaults to `127.0.0.1` and `8080` respectively. You can
   -repos string
         Comma-separated list of repos to scan
 
-  -scan-target string
+  -sub-dir string
         Sub-directory within the repository to scan
 
   -quiet

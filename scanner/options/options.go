@@ -88,7 +88,7 @@ func Parse() (Options, error) {
 		LogSecret:        flag.Bool("log-secret", true, "If true, the matched secret will be included in report file"),
 		Report:           flag.String("output", "", "Save session to file"),
 		Repos:            flag.String("repos", "", "Comma-separated list of repos to scan"),
-		ScanTarget:       flag.String("scan-target", "", "Sub-directory within the repository to scan"),
+		ScanTarget:       flag.String("sub-dir", "", "Sub-directory within the repository to scan"),
 		Silent:           flag.Bool("quiet", false, "Suppress all output except for errors"),
 		SkipTestContexts: flag.Bool("skip-tests", true, "Skips possible test contexts"),
 		State:            flag.Bool("use-state", false, "If state is off, every scan will be treated as a brand new scan."),
