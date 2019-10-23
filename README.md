@@ -56,12 +56,12 @@ You can scan multiple repositories from the same Git provider by providing multi
 
 ### Local Scan
 
-By default, the tool will attempt to make a local clone before scanning the files.
+By default, the tool will attempt to make a clone before scanning the files.
 
-If you already have a copy of the repository on local disk, you can do a local scan by specifying the `local` parameter.
+If you already have a copy of the repository on local disk, you can do a local scan by specifying the `d` parameter.
 
 ```
-./secret-scanner -local /path/to/local/repository
+./secret-scanner -d /dir/path/to/local/repository
 ```
 
 ### Sub-directory Scan
@@ -83,15 +83,15 @@ To scan `src` only:
 ./secret-scanner -repos jquery/jquery -scan-target src
 ```
 
-## Report
+## Scan Results as Output
 
-By default, findings found during the scan will be printed as console output. You can save it as JSON to path by specifying the `report` param
+By default, findings found during the scan will be printed as console output. You can save it as JSON to path by specifying the `output` param
 
 ```
-./secret-scanner -repos jquery/jquery -report ~/report.json
+./secret-scanner -repos jquery/jquery -output ~/report.json
 ```
 
-The report file will contain the lines containing the potential secrets. In circumstances where you do not want to expose them, you can specify `-log-secret=false`
+The output file will contain the lines containing the potential secrets. In circumstances where you do not want to expose them, you can specify `-log-secret=false`
 
 ## Scan State
 
@@ -102,7 +102,7 @@ If scan state is enabled, the scanner will save the latest scan session and comm
 The default location of scan state JSON file is in `~/.secret-scanner/`.
 
 ```
-./secret-scanner -repos jquery/jquery -state=true
+./secret-scanner -repos jquery/jquery -use-state=true
 ```
 
 ### Web UI
@@ -136,13 +136,13 @@ UI server host and port defaults to `127.0.0.1` and `8080` respectively. You can
   -load string
         Load session file
 
-  -local string
+  -d string
         Specify the local git repo path to scan
 
   -log-secret
-        If true, the matched secret will be included in report file (default true)
+        If true, the matched secret will be included in output file (default true)
 
-  -report string
+  -output string
         Save session to file
 
   -repos string
@@ -151,14 +151,14 @@ UI server host and port defaults to `127.0.0.1` and `8080` respectively. You can
   -scan-target string
         Sub-directory within the repository to scan
 
-  -silent
+  -quiet
         Suppress all output except for errors
 
   -skip-tests
         Skips possible test contexts (default true)
 
-  -state
-        If state is off, every scan will be treated as a brand new scan.
+  -use-state
+        If use-state is off, every scan will be treated as a brand new scan.
 
   -threads int
         Number of concurrent threads (default number of logical CPUs)

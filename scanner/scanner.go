@@ -59,6 +59,7 @@ func Scan(sess *session.Session, gitProvider gitprovider.GitProvider) {
 	sess.Out.Important("Analyzing %d %s...\n", len(sess.Repositories), Pluralize(len(sess.Repositories), "repository", "repositories"))
 
 	var authMethod transport.AuthMethod
+	// for github and gitlab, only personal access token is required, username can be a placeholder
 	switch *sess.Options.GitProvider {
 	case gitprovider.GithubName:
 		authMethod = &http.BasicAuth{
