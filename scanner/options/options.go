@@ -84,7 +84,7 @@ func Parse() (Options, error) {
 		EnvFilePath:      flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
 		GitProvider:      flag.String("git", "github", "Name of git provider (Eg. github, gitlab, bitbucket)"),
 		Load:             flag.String("load", "", "Load session file"),
-		LocalPath:        flag.String("d", "", "Specify the local git repo path to scan"),
+		LocalPath:        flag.String("dir", "", "Specify the local git repo path to scan"),
 		LogSecret:        flag.Bool("log-secret", true, "If true, the matched secret will be included in report file"),
 		Report:           flag.String("output", "", "Save session to file"),
 		Repos:            flag.String("repos", "", "Comma-separated list of repos to scan"),

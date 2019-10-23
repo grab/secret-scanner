@@ -58,10 +58,10 @@ You can scan multiple repositories from the same Git provider by providing multi
 
 By default, the tool will attempt to make a clone before scanning the files.
 
-If you already have a copy of the repository on local disk, you can do a local scan by specifying the `d` parameter.
+If you already have a copy of the repository on local disk, you can do a local scan by specifying the `dir` parameter.
 
 ```
-./secret-scanner -d /dir/path/to/local/repository
+./secret-scanner -dir /dir/path/to/local/repository
 ```
 
 ### Sub-directory Scan
@@ -136,7 +136,7 @@ UI server host and port defaults to `127.0.0.1` and `8080` respectively. You can
   -load string
         Load session file
 
-  -d string
+  -dir string
         Specify the local git repo path to scan
 
   -log-secret
