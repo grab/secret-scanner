@@ -35,7 +35,7 @@ type Bitbucket struct {
 }
 
 // UserRepository fetches a user's repository
-func (bb *Bitbucket) UserRepository(userSlug, repoSlug string, client *http.Client) (*Repository, error) {
+func (bb *Bitbucket) UserRepository(userSlug, repoSlug string) (*Repository, error) {
 	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("%s/%s", bb.config.BaseURL, path.Join("repositories", userSlug, repoSlug)), nil)
 	if err != nil {
 		return nil, err
@@ -44,7 +44,7 @@ func (bb *Bitbucket) UserRepository(userSlug, repoSlug string, client *http.Clie
 		req.Header.Set("Authorization", fmt.Sprintf("%s %s", "Bearer ", bb.token.AccessToken))
 	}
 
-	resp, err := client.Do(req)
+	resp, err := bb.Client.Do(req)
 	if err != nil {
 		return nil, err
 	}

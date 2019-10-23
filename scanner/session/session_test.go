@@ -22,22 +22,20 @@ import (
 )
 
 var defaultOptions = options.Options{
-	CommitDepth:          flag.Int("commit-depth", 500, "Number of repository commits to process"),
-	Threads:              flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
-	Save:                 flag.String("save", "", "Save session to file"),
-	Load:                 flag.String("load", "", "Load session file"),
-	Silent:               flag.Bool("silent", false, "Suppress all output except for errors"),
-	Debug:                flag.Bool("debug", false, "Print debugging information"),
-	GitProvider:          flag.String("git", "", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
-	BaseURL:              flag.String("baseurl", "", "Specify Git provider base URL"),
-	Token:                flag.String("token", "", "Specify Git provider token"),
-	EnvFilePath:          flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
-	HistoryStoreFilePath: flag.String("history", "", "File path to store scan histories"),
-	RepoID:               flag.String("repo-id", "", "Scan the repository with this ID"),
-	ScanTarget:           flag.String("scan-target", "", "Sub-directory within the repository to scan"),
-	Repos:                flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
-	GitScanPath:          flag.String("git-scan-path", "", "Specify the local path to scan"),
-	UI:                   flag.Bool("ui", true, "Serves up local UI for scan results if true, defaults to true"),
+	CommitDepth: flag.Int("commit-depth", 500, "Number of repository commits to process"),
+	Threads:     flag.Int("threads", 0, "Number of concurrent threads (default number of logical CPUs)"),
+	Report:      flag.String("save", "", "Save session to file"),
+	Load:        flag.String("load", "", "Load session file"),
+	Silent:      flag.Bool("silent", false, "Suppress all output except for errors"),
+	Debug:       flag.Bool("debug", false, "Print debugging information"),
+	GitProvider: flag.String("git", "", "Specify type of git provider (Eg. github, gitlab, bitbucket)"),
+	BaseURL:     flag.String("baseurl", "", "Specify Git provider base URL"),
+	Token:       flag.String("token", "", "Specify Git provider token"),
+	EnvFilePath: flag.String("env", "", ".env file path containing Git provider base URLs and tokens"),
+	ScanTarget:  flag.String("scan-target", "", "Sub-directory within the repository to scan"),
+	Repos:       flag.String("repo-list", "", "CSV file containing the list of whitelisted repositories to scan"),
+	LocalPath:   flag.String("git-scan-path", "", "Specify the local path to scan"),
+	UI:          flag.Bool("ui", true, "Serves up local UI for scan results if true, defaults to true"),
 }
 
 func TestSession_Initialize(t *testing.T) {
@@ -52,8 +50,8 @@ func TestSession_Initialize(t *testing.T) {
 	if sess.Stats == nil {
 		t.Errorf("Want Stats, got nil")
 	}
-	if sess.HistoryStore == nil {
-		t.Errorf("Want HistoryStore, got nil")
+	if sess.StateStore == nil {
+		t.Errorf("Want StateStore, got nil")
 	}
 	sess.End()
 }
@@ -146,6 +144,6 @@ func createNewSession() *Session {
 		Findings:     nil,
 		Repositories: nil,
 		Signatures:   nil,
-		HistoryStore: nil,
+		StateStore:   nil,
 	}
 }

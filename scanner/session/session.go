@@ -16,7 +16,7 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/history"
+	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/state"
 
 	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
 
@@ -38,13 +38,13 @@ type Session struct {
 	Findings     []*findings.Finding
 	Repositories []*gitprovider.Repository
 	Signatures   []signatures.Signature `json:"-"`
-	HistoryStore *history.JSONFileStore
+	StateStore   *state.JSONFileStore
 }
 
 // Initialize inits a scan session
 func (s *Session) Initialize(options options.Options) {
 	s.Options = options
-	s.InitHistoryStoreOrFail(*options.HistoryStoreFilePath)
+	s.InitStateStoreOrFail("")
 	s.InitLogger()
 	s.InitStats()
 	s.InitThreads()
@@ -55,15 +55,15 @@ func (s *Session) Initialize(options options.Options) {
 func (s *Session) End() {
 	s.Stats.FinishedAt = time.Now()
 	s.Stats.Status = StatusFinished
-	s.HistoryStore.Close()
+	s.StateStore.Close()
 }
 
-// InitHistoryStoreOrFail inits a history storage
-func (s *Session) InitHistoryStoreOrFail(filepath string) {
-	s.HistoryStore = &history.JSONFileStore{}
+// InitStateStoreOrFail inits a history storage
+func (s *Session) InitStateStoreOrFail(filepath string) {
+	s.StateStore = &state.JSONFileStore{}
 
 	if filepath == "" {
-		defaultPath, err := s.HistoryStore.GetDefaultStorePath()
+		defaultPath, err := s.StateStore.GetDefaultStorePath()
 		if err != nil {
 			fmt.Println(fmt.Sprintf("Unable to create default history file path: %v", err))
 			os.Exit(1)
@@ -71,9 +71,9 @@ func (s *Session) InitHistoryStoreOrFail(filepath string) {
 		filepath = defaultPath
 	}
 
-	err := s.HistoryStore.Initialize(filepath)
+	err := s.StateStore.Initialize(filepath)
 	if err != nil {
-		fmt.Println(fmt.Sprintf("Unable to initialize HistoryStore: %v", err))
+		fmt.Println(fmt.Sprintf("Unable to initialize StateStore: %v", err))
 		os.Exit(1)
 	}
 }
@@ -180,8 +180,8 @@ func ValidateNewSession(session *Session) error {
 	//   return err
 	// }
 
-	if *session.Options.Save != "" && filehandler.FileExists(*session.Options.Save) {
-		return fmt.Errorf("file: %s already exists", *session.Options.Save)
+	if *session.Options.Report != "" && filehandler.FileExists(*session.Options.Report) {
+		return fmt.Errorf("file: %s already exists", *session.Options.Report)
 	}
 
 	if *session.Options.Load != "" {

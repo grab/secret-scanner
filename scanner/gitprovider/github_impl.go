@@ -8,7 +8,10 @@ package gitprovider
 import (
 	"context"
 	"errors"
+	"net/http"
 	"net/url"
+
+	"golang.org/x/oauth2"
 
 	"github.com/google/go-github/github"
 
@@ -29,13 +32,18 @@ func (g *GithubProvider) Initialize(baseURL, token string, additionalParams map[
 		return ErrInvalidAdditionalParams
 	}
 
-	g.Token = token
+	var client *http.Client
 	g.AdditionalParams = additionalParams
-	//ts := oauth2.StaticTokenSource(
-	//	&oauth2.Token{AccessToken: token},
-	//)
-	//tc := oauth2.NewClient(context.Background(), ts)
-	g.Client = github.NewClient(nil)
+
+	if token != "" {
+		g.Token = token
+		ts := oauth2.StaticTokenSource(
+			&oauth2.Token{AccessToken: token},
+		)
+		client = oauth2.NewClient(context.Background(), ts)
+	}
+
+	g.Client = github.NewClient(client)
 
 	// change client's base URL if needed
 	if baseURL != "" {
@@ -74,6 +82,15 @@ func (g *GithubProvider) GetRepository(opt map[string]string) (*Repository, erro
 		Homepage:      r.GetHomepage(),
 		Owner:         r.GetOwner().GetName(),
 	}, nil
+}
+
+// GetAdditionalParams validates additional params
+func (g *GithubProvider) GetAdditionalParam(key string) string {
+	val, exists := g.AdditionalParams[key]
+	if !exists {
+		return ""
+	}
+	return val
 }
 
 // ValidateAdditionalParams validates additional params

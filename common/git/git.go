@@ -13,6 +13,8 @@ import (
 	"path"
 	"strings"
 
+	"gopkg.in/src-d/go-git.v4/plumbing/transport"
+
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/plumbing"
 	"gopkg.in/src-d/go-git.v4/plumbing/object"
@@ -25,20 +27,24 @@ const (
 )
 
 // CloneRepository clones a repository from a remote source to local temp. dir.
-func CloneRepository(url *string, branch *string, depth int) (*git.Repository, string, error) {
+func CloneRepository(url *string, branch *string, depth int, auth transport.AuthMethod) (*git.Repository, string, error) {
 	urlVal := *url
 	branchVal := *branch
 	dir, err := ioutil.TempDir("", "secretscanner")
 	if err != nil {
 		return nil, "", err
 	}
-	repository, err := git.PlainClone(dir, false, &git.CloneOptions{
+	cloneOpt := &git.CloneOptions{
 		URL:           urlVal,
 		Depth:         depth,
 		ReferenceName: plumbing.ReferenceName(fmt.Sprintf("refs/heads/%s", branchVal)),
 		SingleBranch:  true,
 		Tags:          git.NoTags,
-	})
+	}
+	if auth != nil {
+		cloneOpt.Auth = auth
+	}
+	repository, err := git.PlainClone(dir, false, cloneOpt)
 	if err != nil {
 		return nil, dir, err
 	}
