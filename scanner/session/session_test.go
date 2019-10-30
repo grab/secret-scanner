@@ -119,9 +119,13 @@ func TestSession_SaveToFile(t *testing.T) {
 	}
 
 	filepath := path.Join(tempDir, "ss-test.json")
-	err = sess.SaveToFile(filepath)
+	absPath, err := sess.SaveToFile(filepath)
 	if err != nil {
 		t.Errorf("Want no err, got err: %v", err)
+		return
+	}
+	if absPath != filepath {
+		t.Errorf("Want %v, got %v", filepath, absPath)
 		return
 	}
 

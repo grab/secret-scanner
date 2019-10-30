@@ -90,11 +90,11 @@ func main() {
 	sess.Out.Important("Gitlab Scanning Finished at %s\n", sess.Stats.FinishedAt.Format(time.RFC3339))
 
 	if *sess.Options.Report != "" {
-		err := sess.SaveToFile(*sess.Options.Report)
+		absPath, err := sess.SaveToFile(*sess.Options.Report)
 		if err != nil {
 			sess.Out.Error("Error saving session to %s: %s\n", *sess.Options.Report, err)
 		}
-		sess.Out.Important("Saved session to: %s\n\n", *sess.Options.Report)
+		sess.Out.Important("Saved session to: %s\n\n", absPath)
 	}
 
 	sess.Stats.PrintStats(sess.Out)
