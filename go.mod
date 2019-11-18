@@ -1,4 +1,4 @@
-module gitlab.myteksi.net/product-security/ssdlc/secret-scanner
+module github.com/grab/secret-scanner
 
 go 1.12
 

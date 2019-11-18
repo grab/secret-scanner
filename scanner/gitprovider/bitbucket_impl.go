@@ -9,7 +9,7 @@ import (
 	"errors"
 	"net/http"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/external/remotegit/bitbucket"
+	"github.com/grab/secret-scanner/external/remotegit/bitbucket"
 )
 
 // BitbucketProvider holds Bitbucket client fields

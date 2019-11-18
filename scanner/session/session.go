@@ -16,16 +16,16 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/state"
+	"github.com/grab/secret-scanner/scanner/state"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
+	"github.com/grab/secret-scanner/scanner/findings"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/filehandler"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/log"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/stats"
+	"github.com/grab/secret-scanner/common/filehandler"
+	"github.com/grab/secret-scanner/common/log"
+	"github.com/grab/secret-scanner/scanner/gitprovider"
+	"github.com/grab/secret-scanner/scanner/options"
+	"github.com/grab/secret-scanner/scanner/signatures"
+	"github.com/grab/secret-scanner/scanner/stats"
 )
 
 // Session contains fields describing a scan session

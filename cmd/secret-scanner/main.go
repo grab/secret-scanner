@@ -15,10 +15,10 @@ import (
 
 	"github.com/joho/godotenv"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
+	"github.com/grab/secret-scanner/scanner"
+	"github.com/grab/secret-scanner/scanner/gitprovider"
+	"github.com/grab/secret-scanner/scanner/options"
+	"github.com/grab/secret-scanner/scanner/session"
 )
 
 func main() {

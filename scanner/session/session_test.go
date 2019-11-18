@@ -14,11 +14,11 @@ import (
 	"testing"
 	"time"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
+	"github.com/grab/secret-scanner/scanner/gitprovider"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
+	"github.com/grab/secret-scanner/scanner/findings"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/options"
+	"github.com/grab/secret-scanner/scanner/options"
 )
 
 var defaultOptions = options.Options{

@@ -19,14 +19,14 @@ import (
 	"gopkg.in/src-d/go-git.v4/plumbing/transport"
 	"gopkg.in/src-d/go-git.v4/plumbing/transport/http"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/state"
+	"github.com/grab/secret-scanner/scanner/state"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/findings"
+	"github.com/grab/secret-scanner/scanner/findings"
 
-	gitHandler "gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/git"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/gitprovider"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/session"
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/scanner/signatures"
+	gitHandler "github.com/grab/secret-scanner/common/git"
+	"github.com/grab/secret-scanner/scanner/gitprovider"
+	"github.com/grab/secret-scanner/scanner/session"
+	"github.com/grab/secret-scanner/scanner/signatures"
 	"gopkg.in/src-d/go-git.v4"
 )
 

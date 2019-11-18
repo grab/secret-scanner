@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	"gitlab.myteksi.net/product-security/ssdlc/secret-scanner/common/log"
+	"github.com/grab/secret-scanner/common/log"
 )
 
 // Stats holds info about the scan status
