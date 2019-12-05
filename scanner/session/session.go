@@ -6,6 +6,7 @@
 package session
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -129,9 +130,16 @@ func (s *Session) SaveToFile(location string) (string, error) {
 		return "", err
 	}
 
+	// prettify JSON
+	var prettyJSON bytes.Buffer
+	err = json.Indent(&prettyJSON, sessionJSON, "", "\t")
+	if err != nil {
+		return "", err
+	}
+
 	// if exists write to file
 	if filehandler.FileExists(absPath) {
-		err = ioutil.WriteFile(absPath, sessionJSON, 0644)
+		err = ioutil.WriteFile(absPath, prettyJSON.Bytes(), 0644)
 		if err != nil {
 			return "", err
 		}
@@ -152,7 +160,7 @@ func (s *Session) SaveToFile(location string) (string, error) {
 	}
 
 	// write to file
-	err = ioutil.WriteFile(absPath, sessionJSON, 0644)
+	err = ioutil.WriteFile(absPath, prettyJSON.Bytes(), 0644)
 	if err != nil {
 		return "", err
 	}
