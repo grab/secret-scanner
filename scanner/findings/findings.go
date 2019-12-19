@@ -40,7 +40,7 @@ type Finding struct {
 func (f *Finding) GenerateHashID() (hash string, err error) {
 	// Used for dedupe in defect dojo
 	h := sha256.New()
-	str := fmt.Sprintf("%s%s%s", f.FileURL, f.Action, f.Description)
+	str := fmt.Sprintf("%s%s%v%s", f.FileURL, f.Action, f.Line, f.LineContent)
 
 	_, err = io.WriteString(h, str)
 	if err != nil {
