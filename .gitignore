@@ -3,3 +3,4 @@ vendor/
 .env
 dbconfig.yml
 .DS_Store
+secret-scanner
